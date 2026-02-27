@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus, CheckCircle, XCircle, Edit, Trash2, Eye } from 'lucide-react';
+import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus, CheckCircle, XCircle, Edit, Trash2, Eye, Mail, Phone, Building } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { DataTable } from '@/components/dashboard/data-table';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
+import type { IUser as User } from '@/lib/models/User';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,6 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const navItems = [
   { label: 'Overview', href: '/super-admin', icon: <BarChart3 size={20} /> },
@@ -30,138 +32,123 @@ const navItems = [
     icon: <Users size={20} />,
   },
   {
+    label: 'Users',
+    href: '/super-admin/users',
+    icon: <Users size={20} />,
+  },
+  {
     label: 'Settings',
     href: '/super-admin/settings',
     icon: <Settings size={20} />,
   },
 ];
 
-export default function OrganizationsPage() {
+export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedOrg, setSelectedOrg] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState({
-    name: '',
-    country: '',
-    address: '',
+    email: '',
+    role: '',
     phone: '',
+    organization: '',
   });
-  const { organizations, fetchOrganizations } = useAppStore();
+  const { users, organizations, fetchUsers } = useAppStore();
 
   useEffect(() => {
-    fetchOrganizations().finally(() => setIsLoading(false));
-  }, [fetchOrganizations]);
+    fetchUsers().finally(() => setIsLoading(false));
+  }, [fetchUsers]);
 
-  const approvedCount = organizations.filter(org => org.status === 'approved').length;
-  const pendingCount = organizations.filter(org => org.status === 'pending').length;
+  const adminCount = users.filter(user => user.role === 'super-admin').length;
+  const orgAdminCount = users.filter(user => user.role === 'org-admin').length;
+  const totalCount = users.length;
 
   const stats = [
     {
-      title: 'Total Organizations',
-      value: organizations.length,
-      icon: '🏢',
-      trend: { value: 12, isPositive: true },
+      title: 'Total Users',
+      value: totalCount,
+      icon: '👥',
+      trend: { value: 15, isPositive: true },
       color: 'green' as const,
     },
     {
-      title: 'Approved',
-      value: approvedCount,
-      icon: '✅',
-      trend: { value: 8, isPositive: true },
+      title: 'Super Admins',
+      value: adminCount,
+      icon: '👑',
+      trend: { value: 1, isPositive: true },
       color: 'blue' as const,
     },
     {
-      title: 'Pending',
-      value: pendingCount,
-      icon: '⏳',
-      trend: { value: -2, isPositive: false },
+      title: 'Org Admins',
+      value: orgAdminCount,
+      icon: '🏢',
+      trend: { value: 12, isPositive: true },
       color: 'gold' as const,
     },
     {
-      title: 'Active Leagues',
-      value: organizations.reduce((sum, org) => sum + (org.leaguesCount || 0), 0),
-      icon: '🏆',
-      trend: { value: 23, isPositive: true },
+      title: 'Active Users',
+      value: users.filter(user => user.organization).length,
+      icon: '✅',
+      trend: { value: 8, isPositive: true },
       color: 'red' as const,
     },
   ];
 
-  const handleToggleStatus = async (orgId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'approved' ? 'pending' : 'approved';
-    setActionLoading(orgId);
-    try {
-      const response = await fetch(`/api/organizations/${orgId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (response.ok) {
-        await fetchOrganizations();
-      } else {
-        console.error('Failed to update organization status');
-      }
-    } catch (error) {
-      console.error('Error updating organization status:', error);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleEdit = (org: any) => {
-    setSelectedOrg(org);
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
     setEditForm({
-      name: org.name,
-      country: org.country,
-      address: org.address || '',
-      phone: org.phone || '',
+      email: user.email,
+      role: user.role,
+      phone: user.phone || '',
+      organization: user.organization?.id?.toString() || user.organization?._id?.toString() || '',
     });
     setEditModalOpen(true);
   };
 
-  const handleDelete = (org: any) => {
-    setSelectedOrg(org);
+  const handleDelete = (user: User) => {
+    setSelectedUser(user);
     setDeleteModalOpen(true);
   };
 
   const handleSaveEdit = async () => {
-    if (!selectedOrg) return;
-    setActionLoading(selectedOrg._id);
+    if (!selectedUser) return;
+    setActionLoading(selectedUser._id.toString());
     try {
-      const response = await fetch(`/api/organizations/${selectedOrg._id}`, {
+      const response = await fetch(`/api/users/${selectedUser._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
       });
       if (response.ok) {
-        await fetchOrganizations();
+        await fetchUsers();
         setEditModalOpen(false);
       } else {
-        console.error('Failed to update organization');
+        console.error('Failed to update user');
       }
     } catch (error) {
-      console.error('Error updating organization:', error);
+      console.error('Error updating user:', error);
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleConfirmDelete = async () => {
-    if (!selectedOrg) return;
-    setActionLoading(selectedOrg._id);
+    if (!selectedUser) return;
+    setActionLoading(selectedUser._id.toString());
     try {
-      const response = await fetch(`/api/organizations/${selectedOrg._id}`, {
+      const response = await fetch(`/api/users/${selectedUser._id}`, {
         method: 'DELETE',
       });
       if (response.ok) {
-        await fetchOrganizations();
+        await fetchUsers();
         setDeleteModalOpen(false);
       } else {
-        console.error('Failed to delete organization');
+        console.error('Failed to delete user');
       }
     } catch (error) {
-      console.error('Error deleting organization:', error);
+      console.error('Error deleting user:', error);
     } finally {
       setActionLoading(null);
     }
@@ -169,65 +156,55 @@ export default function OrganizationsPage() {
 
   const columns = [
     {
-      key: 'name',
-      label: 'Organization Name',
+      key: 'email',
+      label: 'Email',
       sortable: true,
       render: (value: string, row: any) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center">
-            <Users size={20} className="text-primary" />
+            <Mail size={20} className="text-primary" />
           </div>
           <div>
             <p className="font-semibold text-foreground">{value}</p>
-            <p className="text-sm text-muted-foreground">{row.country}</p>
+            <p className="text-sm text-muted-foreground">{row.role}</p>
           </div>
         </div>
       ),
     },
     {
-      key: 'country',
-      label: 'Country',
-      sortable: true,
+      key: 'role',
+      label: 'Role',
       render: (value: string) => (
-        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-          {value}
+        <Badge
+          variant={value === 'super-admin' ? 'default' : 'secondary'}
+          className={
+            value === 'super-admin'
+              ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+              : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+          }
+        >
+          {value === 'super-admin' ? 'Super Admin' : 'Org Admin'}
         </Badge>
       ),
     },
     {
-      key: 'leaguesCount',
-      label: 'Leagues',
-      render: (value: number) => (
+      key: 'organization',
+      label: 'Organization',
+      render: (value: any) => (
         <div className="flex items-center gap-2">
-          <Trophy size={16} className="text-accent" />
-          <span className="font-semibold">{value || 0}</span>
+          <Building size={16} className="text-accent" />
+          <span className="font-medium">{value?.name || 'None'}</span>
         </div>
       ),
     },
     {
-      key: 'status',
-      label: 'Status',
+      key: 'phone',
+      label: 'Phone',
       render: (value: string) => (
-        <Badge
-          variant={value === 'approved' ? 'default' : 'secondary'}
-          className={
-            value === 'approved'
-              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-              : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
-          }
-        >
-          {value === 'approved' ? (
-            <>
-              <CheckCircle size={14} className="mr-1" />
-              Approved
-            </>
-          ) : (
-            <>
-              <TrendingUp size={14} className="mr-1" />
-              Pending
-            </>
-          )}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Phone size={16} className="text-muted-foreground" />
+          <span>{value || 'N/A'}</span>
+        </div>
       ),
     },
     {
@@ -238,24 +215,8 @@ export default function OrganizationsPage() {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => handleToggleStatus(row._id || row.id, row.status)}
-            disabled={actionLoading === (row._id || row.id)}
-            className={`h-8 px-3 py-1 rounded-full text-xs font-semibold ${
-              row.status === 'approved'
-                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
-            }`}
-          >
-            {actionLoading === (row._id || row.id) ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
-            ) : null}
-            {row.status === 'approved' ? 'Set Pending' : 'Approve'}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
             onClick={() => handleEdit(row)}
-            disabled={actionLoading === (row._id || row.id)}
+            disabled={actionLoading === (row._id?.toString() || row.id)}
             className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
           >
             <Edit size={16} />
@@ -264,10 +225,10 @@ export default function OrganizationsPage() {
             size="sm"
             variant="ghost"
             onClick={() => handleDelete(row)}
-            disabled={actionLoading === (row._id || row.id)}
+            disabled={actionLoading === (row._id?.toString() || row.id)}
             className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
           >
-            {actionLoading === (row._id || row.id) ? (
+            {actionLoading === (row._id?.toString() || row.id) ? (
               <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
             ) : (
               <Trash2 size={16} />
@@ -283,7 +244,7 @@ export default function OrganizationsPage() {
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-border border-t-accent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading organizations...</p>
+          <p className="text-muted-foreground">Loading users...</p>
         </div>
       </div>
     );
@@ -295,8 +256,8 @@ export default function OrganizationsPage() {
 
       <DashboardLayout
         title="EthioScore"
-        headerTitle="Organizations Management"
-        headerDescription="Manage all registered organizations and their approval status"
+        headerTitle="Users Management"
+        headerDescription="Manage all system users and their permissions"
         navItems={navItems}
         headerActions={
           <motion.button
@@ -305,7 +266,7 @@ export default function OrganizationsPage() {
             className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow"
           >
             <Plus size={20} />
-            Add Organization
+            Add User
           </motion.button>
         }
       >
@@ -326,7 +287,7 @@ export default function OrganizationsPage() {
             ))}
           </motion.div>
 
-          {/* Organizations Table */}
+          {/* Users Table */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -335,9 +296,9 @@ export default function OrganizationsPage() {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-bold">All Organizations</h3>
+                <h3 className="text-xl font-bold">All Users</h3>
                 <p className="text-muted-foreground mt-1">
-                  Review and manage organization registrations
+                  Manage user accounts and permissions
                 </p>
               </div>
               <div className="flex gap-2">
@@ -347,7 +308,7 @@ export default function OrganizationsPage() {
                 </Button>
               </div>
             </div>
-            <DataTable columns={columns} data={organizations} />
+            <DataTable columns={columns} data={users} />
           </motion.div>
         </div>
       </DashboardLayout>
@@ -356,44 +317,55 @@ export default function OrganizationsPage() {
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Organization</DialogTitle>
+            <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
-              Make changes to the organization details below.
+              Update user information and permissions.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
+              <Label htmlFor="email" className="text-right">
+                Email
               </Label>
               <Input
-                id="name"
-                value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                id="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 className="col-span-3"
+                disabled
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="country" className="text-right">
-                Country
+              <Label htmlFor="role" className="text-right">
+                Role
               </Label>
-              <Input
-                id="country"
-                value={editForm.country}
-                onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
-                className="col-span-3"
-              />
+              <Select value={editForm.role} onValueChange={(value) => setEditForm({ ...editForm, role: value })}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="org-admin">Organization Admin</SelectItem>
+                  <SelectItem value="super-admin">Super Admin</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Address
+              <Label htmlFor="organization" className="text-right">
+                Organization
               </Label>
-              <Textarea
-                id="address"
-                value={editForm.address}
-                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                className="col-span-3"
-              />
+              <Select value={editForm.organization} onValueChange={(value) => setEditForm({ ...editForm, organization: value })}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id || org._id || org.name} value={org.id || org._id || org.name}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="phone" className="text-right">
@@ -408,8 +380,8 @@ export default function OrganizationsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" onClick={handleSaveEdit} disabled={actionLoading === selectedOrg?._id}>
-              {actionLoading === selectedOrg?._id ? 'Saving...' : 'Save changes'}
+            <Button type="submit" onClick={handleSaveEdit} disabled={actionLoading === selectedUser?._id.toString()}>
+              {actionLoading === selectedUser?._id.toString() ? 'Saving...' : 'Save changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -419,18 +391,17 @@ export default function OrganizationsPage() {
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Delete Organization</DialogTitle>
+            <DialogTitle>Delete User</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{selectedOrg?.name}"? This action cannot be undone.
-              All associated users will be unlinked from this organization.
+              Are you sure you want to delete "{selectedUser?.email}"? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete} disabled={actionLoading === selectedOrg?._id}>
-              {actionLoading === selectedOrg?._id ? 'Deleting...' : 'Delete'}
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={actionLoading === selectedUser?._id.toString()}>
+              {actionLoading === selectedUser?._id.toString() ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

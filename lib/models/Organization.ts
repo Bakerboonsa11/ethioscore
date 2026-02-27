@@ -20,4 +20,7 @@ const OrganizationSchema: Schema = new Schema({
   timestamps: true,
 });
 
+// Force re-registration to apply schema changes
+delete mongoose.models.Organization;
+
 export default mongoose.model<IOrganization>('Organization', OrganizationSchema);

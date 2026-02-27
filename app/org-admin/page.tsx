@@ -9,6 +9,7 @@ import { Modal } from '@/components/common/modal';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
 import { mockLeagues, mockMatches } from '@/lib/mock-data';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 
 const navItems = [
   { label: 'Overview', href: '/org-admin', icon: <BarChart3 size={20} /> },
@@ -92,41 +93,42 @@ export default function OrgAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <GradientBackground />
+    <ProtectedRoute requiredRole="org-admin">
+      <div className="min-h-screen bg-background text-foreground">
+        <GradientBackground />
 
-      <DashboardLayout
-        title="Organization Admin"
-        headerTitle="Dashboard"
-        headerDescription="Manage your organization's leagues and matches"
-        navItems={navItems}
-        headerActions={
-          <motion.button
-            onClick={() => setIsModalOpen(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow"
-          >
-            <Plus size={20} />
-            New League
-          </motion.button>
-        }
-      >
-        <div className="space-y-8">
-          {/* Stats Grid */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-          >
-            {stats.map((stat, i) => (
-              <StatCard
-                key={i}
-                {...stat}
-                delay={i * 0.1}
-              />
-            ))}
+        <DashboardLayout
+          title="Organization Admin"
+          headerTitle="Dashboard"
+          headerDescription="Manage your organization's leagues and matches"
+          navItems={navItems}
+          headerActions={
+            <motion.button
+              onClick={() => setIsModalOpen(true)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow"
+            >
+              <Plus size={20} />
+              New League
+            </motion.button>
+          }
+        >
+          <div className="space-y-8">
+            {/* Stats Grid */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            >
+              {stats.map((stat, i) => (
+                <StatCard
+                  key={i}
+                  {...stat}
+                  delay={i * 0.1}
+                />
+              ))}
           </motion.div>
 
           {/* Leagues Grid */}
@@ -320,5 +322,6 @@ export default function OrgAdminPage() {
         </form>
       </Modal>
     </div>
+    </ProtectedRoute>
   );
 }

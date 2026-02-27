@@ -41,7 +41,13 @@ export async function POST(request: NextRequest) {
     await user.save();
     console.log('User saved');
 
-    return NextResponse.json({ message: 'User and organization created successfully' }, { status: 201 });
+    // Return user without password
+    const { password: _, ...userWithoutPassword } = user.toObject();
+
+    return NextResponse.json({ 
+      message: 'User and organization created successfully',
+      user: userWithoutPassword
+    }, { status: 201 });
   } catch (error: any) {
     console.error('Signup error:', error.message);
     console.error('Full error:', error);

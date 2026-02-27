@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus } from 'lucide-react';
+import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus, UserCheck } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { DataTable } from '@/components/dashboard/data-table';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
 import { mockOrganizations, mockChartData } from '@/lib/mock-data';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 import {
   LineChart,
   Line,
@@ -26,6 +27,11 @@ const navItems = [
     label: 'Organizations',
     href: '/super-admin/organizations',
     icon: <Users size={20} />,
+  },
+  {
+    label: 'Users',
+    href: '/super-admin/users',
+    icon: <UserCheck size={20} />,
   },
   {
     label: 'Settings',
@@ -115,25 +121,26 @@ export default function SuperAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <GradientBackground />
+    <ProtectedRoute requiredRole="super-admin">
+      <div className="min-h-screen bg-background text-foreground">
+        <GradientBackground />
 
-      <DashboardLayout
-        title="EthioScore"
-        headerTitle="Dashboard"
-        headerDescription="Global platform overview"
-        navItems={navItems}
-        headerActions={
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow"
-          >
-            <Plus size={20} />
-            New Organization
-          </motion.button>
-        }
-      >
+        <DashboardLayout
+          title="EthioScore"
+          headerTitle="Dashboard"
+          headerDescription="Global platform overview"
+          navItems={navItems}
+          headerActions={
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow"
+            >
+              <Plus size={20} />
+              New Organization
+            </motion.button>
+          }
+        >
         <div className="space-y-8">
           {/* Stats Grid */}
           <motion.div
@@ -244,5 +251,6 @@ export default function SuperAdminPage() {
         </div>
       </DashboardLayout>
     </div>
+    </ProtectedRoute>
   );
 }

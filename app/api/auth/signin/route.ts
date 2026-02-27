@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import User from '@/lib/models/User';
+import Organization from '@/lib/models/Organization';
 
 const connectDB = async () => {
   if (mongoose.connections[0].readyState) return;
@@ -25,6 +26,32 @@ export async function POST(request: NextRequest) {
     const isPasswordValid = await (user as any).comparePassword(password);
     if (!isPasswordValid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    // For org-admin users, check organization approval status
+    if (user.role === 'org-admin') {
+      if (!user.organization) {
+        return NextResponse.json({
+          error: 'Organization not found. Please contact support.',
+          requiresApproval: true
+        }, { status: 403 });
+      }
+
+      const organization = await Organization.findById(user.organization);
+      if (!organization) {
+        return NextResponse.json({
+          error: 'Organization not found. Please contact support.',
+          requiresApproval: true
+        }, { status: 403 });
+      }
+
+      if (organization.status !== 'approved') {
+        return NextResponse.json({
+          error: 'Your organization is still under review. You will be notified once approved.',
+          organizationStatus: organization.status,
+          requiresApproval: true
+        }, { status: 403 });
+      }
     }
 
     // Return user without password

@@ -5,6 +5,8 @@ export interface IUser extends Document {
   email: string;
   password: string;
   role: 'super-admin' | 'org-admin';
+  phone?: string;
+  organization?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -6,11 +6,15 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
+import { useAppStore } from '@/lib/store';
+import { IUser } from '@/lib/models/User';
 
 export default function SigninPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
     email: '',
@@ -26,15 +30,38 @@ export default function SigninPage() {
     }));
   };
 
+  const { login, user } = useAppStore();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      router.push('/super-admin');
+    setError('');
+
+    try {
+      const response = await login(formData.email, formData.password);
+
+      // Check if the response indicates organization approval is required
+      if ('requiresApproval' in response && response.requiresApproval) {
+        setError(response.error || 'Your organization is still under review.');
+        return;
+      }
+
+      // Type assertion: after the check above, response is guaranteed to be IUser
+      const userData = response as IUser;
+
+      // If login successful and organization approved (for org-admin), redirect based on role
+      if (userData.role === 'super-admin') {
+        router.push('/super-admin');
+      } else if (userData.role === 'org-admin') {
+        router.push('/org-admin');
+      } else {
+        router.push('/dashboard'); // fallback
+      }
+    } catch (err: any) {
+      setError(err.message || 'Sign in failed');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -158,6 +185,16 @@ export default function SigninPage() {
             )}
           </motion.button>
         </form>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm"
+          >
+            {error}
+          </motion.div>
+        )}
 
         {/* Divider */}
         <motion.div

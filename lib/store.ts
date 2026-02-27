@@ -1,7 +1,10 @@
 import { create } from 'zustand';
+import User, { IUser } from './models/User';
+import Organization, { IOrganization } from './models/Organization';
 
 export interface Organization {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
   country: string;
   logo?: string;
@@ -32,7 +35,8 @@ interface AppState {
   organizations: Organization[];
   leagues: League[];
   matches: Match[];
-  user: { id: string; email: string; role: 'super-admin' | 'org-admin' } | null;
+  users: IUser[];
+  user: IUser | null;
   
   // Actions
   setOrganizations: (orgs: Organization[]) => void;
@@ -45,20 +49,25 @@ interface AppState {
   setMatches: (matches: Match[]) => void;
   addMatch: (match: Match) => void;
   
-  setUser: (user: AppState['user']) => void;
+  setUsers: (users: IUser[]) => void;
+  addUser: (user: IUser) => void;
+  fetchUsers: () => Promise<void>;
+  
+  setUser: (user: IUser | null) => void;
   logout: () => void;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (formData: any, role?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<IUser | { requiresApproval: true; error: string; organizationStatus?: string }>;
+  signup: (formData: any, role?: string) => Promise<IUser>;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   organizations: [],
   leagues: [],
   matches: [],
+  users: [], // Add users to initial state
   user: null,
   
-  setOrganizations: (orgs) => set({ organizations: orgs }),
-  addOrganization: (org) =>
+  setOrganizations: (orgs: Organization[]) => set({ organizations: orgs }),
+  addOrganization: (org: Organization) =>
     set((state) => ({ organizations: [...state.organizations, org] })),
   fetchOrganizations: async () => {
     const response = await fetch('/api/organizations');
@@ -68,15 +77,26 @@ export const useAppStore = create<AppState>((set) => ({
     }
   },
   
-  setLeagues: (leagues) => set({ leagues }),
-  addLeague: (league) =>
+  setLeagues: (leagues: League[]) => set({ leagues }),
+  addLeague: (league: League) =>
     set((state) => ({ leagues: [...state.leagues, league] })),
   
-  setMatches: (matches) => set({ matches }),
-  addMatch: (match) =>
+  setMatches: (matches: Match[]) => set({ matches }),
+  addMatch: (match: Match) =>
     set((state) => ({ matches: [...state.matches, match] })),
   
-  setUser: (user) => set({ user }),
+  setUsers: (users: IUser[]) => set({ users }),
+  addUser: (user: IUser) =>
+    set((state) => ({ users: [...state.users, user] })),
+  fetchUsers: async () => {
+    const response = await fetch('/api/users');
+    if (response.ok) {
+      const users = await response.json();
+      set({ users });
+    }
+  },
+  
+  setUser: (user: IUser | null) => set({ user }),
   logout: () => set({ user: null, organizations: [], leagues: [], matches: [] }),
 
   login: async (email: string, password: string) => {
@@ -85,12 +105,22 @@ export const useAppStore = create<AppState>((set) => ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
+
+    const data = await response.json();
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error);
+      // For organization approval required (403 with requiresApproval), return the data
+      // so the frontend can handle it appropriately
+      if (response.status === 403 && data.requiresApproval) {
+        return data;
+      }
+      // For other errors, throw as before
+      throw new Error(data.error);
     }
-    const { user } = await response.json();
+
+    const { user } = data;
     set({ user });
+    return user;
   },
 
   signup: async (formData: any, role = 'org-admin') => {
@@ -103,16 +133,8 @@ export const useAppStore = create<AppState>((set) => ({
       const error = await response.json();
       throw new Error(error.error);
     }
-    // Optionally login after signup
-    await fetch('/api/auth/signin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: formData.email, password: formData.password }),
-    }).then(async (res) => {
-      if (res.ok) {
-        const { user } = await res.json();
-        set({ user });
-      }
-    });
+    const { user } = await response.json();
+    set({ user });
+    return user;
   },
 }));
