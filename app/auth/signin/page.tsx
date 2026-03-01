@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AtSign } from 'lucide-react';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
 import { IUser } from '@/lib/models/User';
@@ -17,7 +17,7 @@ export default function SigninPage() {
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: '',
     rememberMe: false,
   });
@@ -38,7 +38,7 @@ export default function SigninPage() {
     setError('');
 
     try {
-      const response = await login(formData.email, formData.password);
+      const response = await login(formData.username, formData.password);
 
       // Check if the response indicates organization approval is required
       if ('requiresApproval' in response && response.requiresApproval) {
@@ -47,7 +47,7 @@ export default function SigninPage() {
       }
 
       // Type assertion: after the check above, response is guaranteed to be IUser
-      const userData = response as IUser;
+      const userData = response as unknown as IUser;
 
       // If login successful and organization approved (for org-admin), redirect based on role
       if (userData.role === 'super-admin') {
@@ -90,21 +90,21 @@ export default function SigninPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email */}
+          {/* Username */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <label className="block text-sm font-medium mb-2">Email Address</label>
+            <label className="block text-sm font-medium mb-2">Username</label>
             <div className="relative group">
-              <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-accent transition-colors" size={20} />
+              <AtSign className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-accent transition-colors" size={20} />
               <input
-                type="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                name="username"
+                value={formData.username}
                 onChange={handleChange}
-                placeholder="admin@example.com"
+                placeholder="your_username"
                 className="w-full pl-12 pr-4 py-3 bg-card border-2 border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition"
                 required
               />

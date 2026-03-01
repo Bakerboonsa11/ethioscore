@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { BarChart3, Trophy, Users, Zap, Settings, Plus, Edit2, Calendar } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { StatCard } from '@/components/dashboard/stat-card';
-import { Modal } from '@/components/common/modal';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
 import { mockLeagues, mockMatches } from '@/lib/mock-data';
@@ -19,15 +19,10 @@ const navItems = [
 ];
 
 export default function OrgAdminPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    leagueName: '',
-    teamsCount: '',
-    description: '',
-  });
 
-  const { leagues, setLeagues, matches, setMatches, addLeague } = useAppStore();
+  const { leagues, setLeagues, matches, setMatches } = useAppStore();
 
   useEffect(() => {
     setLeagues(mockLeagues);
@@ -66,21 +61,6 @@ export default function OrgAdminPage() {
     },
   ];
 
-  const handleCreateLeague = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newLeague = {
-      id: `l${Date.now()}`,
-      name: formData.leagueName,
-      organization: 'Ethiopian Premier League',
-      teamsCount: parseInt(formData.teamsCount),
-      matchesCount: 0,
-      status: 'draft' as const,
-    };
-    addLeague(newLeague);
-    setFormData({ leagueName: '', teamsCount: '', description: '' });
-    setIsModalOpen(false);
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
@@ -104,7 +84,7 @@ export default function OrgAdminPage() {
           navItems={navItems}
           headerActions={
             <motion.button
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => router.push('/org-admin/leagues/create')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow"
@@ -153,6 +133,7 @@ export default function OrgAdminPage() {
                       <Trophy className="text-primary" size={24} />
                     </div>
                     <motion.button
+                      onClick={() => router.push('/org-admin/leagues')}
                       whileHover={{ scale: 1.1 }}
                       className="p-2 hover:bg-card rounded-lg transition-colors"
                     >
@@ -162,8 +143,9 @@ export default function OrgAdminPage() {
 
                   <h4 className="text-lg font-bold mb-2">{league.name}</h4>
                   <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                    <p>Teams: {league.teamsCount}</p>
-                    <p>Matches: {league.matchesCount}</p>
+                    <p>Year: {league.year}</p>
+                    <p>Format: {league.type?.format || 'N/A'}</p>
+                    {league.region && <p>Region: {league.region}</p>}
                   </div>
 
                   <div className="flex gap-2">
@@ -184,7 +166,7 @@ export default function OrgAdminPage() {
 
               {/* Create New League Card */}
               <motion.button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => router.push('/org-admin/leagues/create')}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, y: 20 }}
@@ -252,76 +234,7 @@ export default function OrgAdminPage() {
           </motion.div>
         </div>
       </DashboardLayout>
-
-      {/* Create League Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Create New League"
-        size="md"
-      >
-        <form onSubmit={handleCreateLeague} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">League Name</label>
-            <input
-              type="text"
-              value={formData.leagueName}
-              onChange={(e) =>
-                setFormData({ ...formData, leagueName: e.target.value })
-              }
-              placeholder="e.g. Premier Division Season 2024"
-              className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-accent outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Number of Teams</label>
-            <input
-              type="number"
-              value={formData.teamsCount}
-              onChange={(e) =>
-                setFormData({ ...formData, teamsCount: e.target.value })
-              }
-              placeholder="16"
-              className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-accent outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              placeholder="League description..."
-              className="w-full px-4 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-accent outline-none resize-none"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-card transition-colors"
-            >
-              Cancel
-            </button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow"
-            >
-              Create League
-            </motion.button>
-          </div>
-        </form>
-      </Modal>
     </div>
-    </ProtectedRoute>
+  </ProtectedRoute>
   );
 }

@@ -13,12 +13,49 @@ export interface Organization {
 }
 
 export interface League {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
-  organization: string;
-  teamsCount: number;
-  matchesCount: number;
-  status: 'active' | 'completed' | 'draft';
+  logo?: string;
+  year: number;
+  region?: string;
+  socialMedia?: {
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+  };
+  organization: {
+    _id: string;
+    name: string;
+  } | string;
+  tier?: number;
+  type: {
+    format: 'league' | 'knockout' | 'group_stage';
+    hasHomeAway: boolean;
+    groupCount?: number;
+    knockoutRounds?: number;
+  };
+  status: 'draft' | 'active' | 'completed';
+  teamsCount?: number;
+  matchesCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface User {
+  id?: string;
+  _id?: string;
+  email: string;
+  username: string;
+  password?: string;
+  role: 'super-admin' | 'org-admin';
+  phone?: string;
+  organization?: {
+    _id: string;
+    name: string;
+  } | string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Match {
@@ -35,28 +72,32 @@ interface AppState {
   organizations: Organization[];
   leagues: League[];
   matches: Match[];
-  users: IUser[];
-  user: IUser | null;
-  
+  users: User[];
+  user: User | null;
+
   // Actions
   setOrganizations: (orgs: Organization[]) => void;
   addOrganization: (org: Organization) => void;
   fetchOrganizations: () => Promise<void>;
-  
+
   setLeagues: (leagues: League[]) => void;
   addLeague: (league: League) => void;
-  
+  fetchLeagues: (organizationId?: string) => Promise<void>;
+  createLeague: (leagueData: any) => Promise<League>;
+  updateLeague: (id: string, leagueData: any) => Promise<League>;
+  deleteLeague: (id: string) => Promise<void>;
+
   setMatches: (matches: Match[]) => void;
   addMatch: (match: Match) => void;
-  
-  setUsers: (users: IUser[]) => void;
-  addUser: (user: IUser) => void;
+
+  setUsers: (users: User[]) => void;
+  addUser: (user: User) => void;
   fetchUsers: () => Promise<void>;
-  
-  setUser: (user: IUser | null) => void;
+
+  setUser: (user: User | null) => void;
   logout: () => void;
-  login: (email: string, password: string) => Promise<IUser | { requiresApproval: true; error: string; organizationStatus?: string }>;
-  signup: (formData: any, role?: string) => Promise<IUser>;
+  login: (email: string, password: string) => Promise<User | { requiresApproval: true; error: string; organizationStatus?: string }>;
+  signup: (formData: any, role?: string) => Promise<User>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -80,13 +121,69 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLeagues: (leagues: League[]) => set({ leagues }),
   addLeague: (league: League) =>
     set((state) => ({ leagues: [...state.leagues, league] })),
-  
+
+  fetchLeagues: async (organizationId?: string) => {
+    const url = organizationId
+      ? `/api/leagues?organization=${organizationId}`
+      : '/api/leagues';
+    const response = await fetch(url);
+    if (response.ok) {
+      const leagues = await response.json();
+      set({ leagues });
+    }
+  },
+
+  createLeague: async (leagueData: any) => {
+    const response = await fetch('/api/leagues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leagueData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    const league = await response.json();
+    get().addLeague(league);
+    return league;
+  },
+
+  updateLeague: async (id: string, leagueData: any) => {
+    const response = await fetch(`/api/leagues/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(leagueData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    const league = await response.json();
+    set((state) => ({
+      leagues: state.leagues.map((l) => (l._id === id || l.id === id ? league : l)),
+    }));
+    return league;
+  },
+
+  deleteLeague: async (id: string) => {
+    const response = await fetch(`/api/leagues/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    set((state) => ({
+      leagues: state.leagues.filter((l) => l._id !== id && l.id !== id),
+    }));
+  },
+
   setMatches: (matches: Match[]) => set({ matches }),
   addMatch: (match: Match) =>
     set((state) => ({ matches: [...state.matches, match] })),
-  
-  setUsers: (users: IUser[]) => set({ users }),
-  addUser: (user: IUser) =>
+
+  setUsers: (users: User[]) => set({ users }),
+  addUser: (user: User) =>
     set((state) => ({ users: [...state.users, user] })),
   fetchUsers: async () => {
     const response = await fetch('/api/users');
@@ -95,15 +192,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ users });
     }
   },
-  
-  setUser: (user: IUser | null) => set({ user }),
+
+  setUser: (user: User | null) => set({ user }),
   logout: () => set({ user: null, organizations: [], leagues: [], matches: [] }),
 
-  login: async (email: string, password: string) => {
+  login: async (username: string, password: string) => {
     const response = await fetch('/api/auth/signin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username, password }),
     });
 
     const data = await response.json();

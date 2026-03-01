@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Building2, Globe, User, Eye, EyeOff, Trophy, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Building2, Globe, User, Eye, EyeOff, Trophy, CheckCircle, Clock, AlertCircle, AtSign } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 
@@ -21,6 +21,7 @@ export default function SignupPage() {
     country: '',
     adminName: '',
     email: '',
+    username: '',
     phone: '',
     password: '',
   });
@@ -359,6 +360,23 @@ export default function SignupPage() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="admin@example.com"
+                    className="w-full pl-10 pr-4 py-3 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Username */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Username</label>
+                <div className="relative">
+                  <AtSign className="absolute left-3 top-3.5 text-muted-foreground" size={20} />
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    placeholder="your_username"
                     className="w-full pl-10 pr-4 py-3 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition"
                     required
                   />

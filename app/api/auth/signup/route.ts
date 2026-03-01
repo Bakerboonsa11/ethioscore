@@ -9,16 +9,20 @@ export async function POST(request: NextRequest) {
     await connectDB();
     console.log('DB connected');
 
-    const { orgName, country, adminName, email, phone, password, role } = await request.json();
-    console.log('Received data:', { orgName, country, email, role });
+    const { orgName, country, adminName, email, username, phone, password, role } = await request.json();
+    console.log('Received data:', { orgName, country, email, username, role });
 
-    if (!email || !password || !orgName || !country) {
+    if (!email || !username || !password || !orgName || !country) {
       return NextResponse.json({ error: 'Required fields missing' }, { status: 400 });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+      if (existingUser.email === email) {
+        return NextResponse.json({ error: 'Email already exists' }, { status: 400 });
+      } else {
+        return NextResponse.json({ error: 'Username already exists' }, { status: 400 });
+      }
     }
 
     // Create organization
@@ -31,15 +35,19 @@ export async function POST(request: NextRequest) {
     console.log('Organization saved:', organization);
 
     // Create user linked to organization
-    const user = new User({
+    const userData = {
       email,
+      username,
       password,
       role: role || 'org-admin',
       phone,
       organization: organization._id,
-    });
+    };
+    console.log('Creating user with data:', userData);
+    
+    const user = new User(userData);
     await user.save();
-    console.log('User saved');
+    console.log('User saved:', user.toObject());
 
     // Return user without password
     const { password: _, ...userWithoutPassword } = user.toObject();
