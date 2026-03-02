@@ -48,9 +48,13 @@ export interface User {
   email: string;
   username: string;
   password?: string;
-  role: 'super-admin' | 'org-admin';
+  role: 'super-admin' | 'org-admin' | 'league-admin';
   phone?: string;
   organization?: {
+    _id: string;
+    name: string;
+  } | string;
+  league?: {
     _id: string;
     name: string;
   } | string;

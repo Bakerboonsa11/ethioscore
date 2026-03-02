@@ -54,6 +54,10 @@ export default function SigninPage() {
         router.push('/super-admin');
       } else if (userData.role === 'org-admin') {
         router.push('/org-admin');
+      } else if (userData.role === 'league-admin') {
+        router.push('/league-admin');
+      } else if (userData.role === 'event-admin') {
+        router.push('/league-admin'); // Event admins go to league admin dashboard
       } else {
         router.push('/dashboard'); // fallback
       }

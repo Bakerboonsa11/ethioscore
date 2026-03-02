@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
+import bcrypt from 'bcryptjs';
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const { id } = await params;
+    const updates = await request.json();
+
+    // Handle password update separately
+    if (updates.password) {
+      updates.password = await bcrypt.hash(updates.password, 12);
+    } else {
+      // Remove password from updates if empty
+      delete updates.password;
+    }
+
+    const user = await User.findByIdAndUpdate(id, updates, { new: true }).populate('organization', 'name');
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ user });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -11,7 +40,7 @@ export async function PATCH(
     const { id } = await params;
     const updates = await request.json();
 
-    // Don't allow password updates via this endpoint for security
+    // Don't allow password updates via PATCH for security
     delete updates.password;
 
     const user = await User.findByIdAndUpdate(id, updates, { new: true }).populate('organization', 'name');

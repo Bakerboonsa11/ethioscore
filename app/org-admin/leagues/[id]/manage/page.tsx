@@ -26,26 +26,221 @@ import {
   Phone
 } from 'lucide-react';
 
-// Modal Components
-const StaffModal = ({ isOpen, onClose, title, icon, type }: {
+const StaffModal = ({
+  isOpen,
+  onClose,
+  title,
+  icon,
+  type,
+  league,
+  existingAdmin,
+  onAdminChange,
+  role = 'league-admin'
+}: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   icon: React.ReactNode;
   type: 'admin' | 'event-admin' | 'referee' | 'staff';
+  league: League;
+  existingAdmin?: User | null;
+  onAdminChange?: (admin: User | null) => void;
+  role?: string;
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const { users } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'existing' | 'create'>('existing');
+  const [createFormData, setCreateFormData] = useState({
+    name: '',
+    username: '',
+    email: '',
+    password: '',
+  });
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { users, user } = useAppStore();
+
+  // Initialize form data when editing existing admin
+  useEffect(() => {
+    if (existingAdmin && type === 'admin') {
+      setCreateFormData({
+        name: existingAdmin.email.split('@')[0] || '', // Use email prefix as name
+        username: existingAdmin.username,
+        email: existingAdmin.email,
+        password: '', // Don't populate password for security
+      });
+      setActiveTab('create'); // Switch to create tab for editing
+    }
+  }, [existingAdmin, type]);
 
   const filteredUsers = users.filter((user): user is User & Required<Pick<User, '_id'>> =>
     user._id != null && user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAddStaff = () => {
-    // TODO: Implement staff assignment logic
-    console.log(`Adding ${type} staff:`, selectedUsers);
-    onClose();
+  const handleAddStaff = async () => {
+    if (selectedUsers.length === 0) return;
+
+    // For admin type, we need to update the user's role and league
+    if (type === 'admin') {
+      try {
+        // Check if league already has an admin by calling the API
+        const response = await fetch(`/api/users?role=${role}&leagueId=${league._id || league.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to check existing admins');
+        }
+        const existingAdmins = await response.json();
+
+        if (existingAdmins.length > 0) {
+          alert(`A ${role.replace('-', ' ')} already exists for this league. You can update or remove the existing admin instead.`);
+          return;
+        }
+
+        // Update the selected user to be an admin
+        const userId = selectedUsers[0]; // Only allow one admin per league
+        const updateResponse = await fetch(`/api/users/${userId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            role: role,
+            league: league._id || league.id,
+          }),
+        });
+
+        if (!updateResponse.ok) {
+          const error = await updateResponse.json();
+          throw new Error(error.error);
+        }
+
+        const updatedUser = await updateResponse.json();
+        console.log(`Assigned ${role}:`, updatedUser);
+
+        // Update state and refresh users list
+        onAdminChange?.(updatedUser.user);
+        await fetchUsers();
+
+        onClose();
+      } catch (error: any) {
+        alert(`Failed to assign ${role.replace('-', ' ')}: ${error.message}`);
+      }
+    } else {
+      // TODO: Implement logic for other staff types
+      console.log(`Adding ${type} staff:`, selectedUsers);
+      onClose();
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!createFormData.username || !createFormData.email || !createFormData.password) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...createFormData,
+          organizationId: league.organization._id || league.organization,
+          leagueId: league._id || league.id,
+          role: role,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
+
+      const { user: newUser } = await response.json();
+      console.log('Created new user:', newUser);
+
+      // Set the new admin in state
+      onAdminChange?.(newUser);
+
+      // Reset form and close modal
+      setCreateFormData({ name: '', username: '', email: '', password: '' });
+      onClose();
+    } catch (error: any) {
+      alert(`Failed to create user: ${error.message}`);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!existingAdmin || !createFormData.username || !createFormData.email) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const updateData: any = {
+        username: createFormData.username,
+        email: createFormData.email,
+      };
+
+      // Only update password if provided
+      if (createFormData.password) {
+        updateData.password = createFormData.password;
+      }
+
+      const response = await fetch(`/api/users/${existingAdmin._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
+
+      const { user: updatedUser } = await response.json();
+      console.log('Updated user:', updatedUser);
+
+      // Update the existing admin in state
+      onAdminChange?.(updatedUser);
+
+      // Reset form and close modal
+      setCreateFormData({ name: '', username: '', email: '', password: '' });
+      onClose();
+    } catch (error: any) {
+      alert(`Failed to update user: ${error.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!existingAdmin) return;
+
+    const roleName = role.replace('-', ' ');
+    if (!confirm(`Are you sure you want to remove this ${roleName}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/users/${existingAdmin._id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
+
+      console.log('Removed user:', existingAdmin._id);
+
+      // Clear the existing admin from state
+      onAdminChange?.(null);
+
+      onClose();
+    } catch (error: any) {
+      alert(`Failed to remove user: ${error.message}`);
+    }
   };
 
   return (
@@ -78,73 +273,230 @@ const StaffModal = ({ isOpen, onClose, title, icon, type }: {
               </button>
             </div>
 
+            {/* Tabs - only show if not editing existing admin */}
+            {!existingAdmin && (
+              <div className="flex border-b border-border">
+                <button
+                  onClick={() => setActiveTab('existing')}
+                  className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
+                    activeTab === 'existing'
+                      ? 'text-accent border-b-2 border-accent'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Select Existing
+                </button>
+                <button
+                  onClick={() => setActiveTab('create')}
+                  className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
+                    activeTab === 'create'
+                      ? 'text-accent border-b-2 border-accent'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Create New
+                </button>
+              </div>
+            )}
+
             <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
-                />
-              </div>
-
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {filteredUsers.map((user) => {
-                  const userId = user._id as string;
-                  return (
-                  <div
-                    key={userId}
-                    className="flex items-center justify-between p-3 bg-background/50 rounded-lg hover:bg-background/80 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium">{user.email.charAt(0).toUpperCase()}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium">{user.email}</p>
-                        {user.phone && (
-                          <p className="text-sm text-muted-foreground">{user.phone}</p>
-                        )}
-                      </div>
+              {existingAdmin ? (
+                // Edit existing admin
+                <>
+                  <div className="p-4 bg-accent/10 rounded-lg border border-accent/20">
+                    <h4 className="font-semibold mb-2">Current {role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+                    <div className="text-sm text-muted-foreground">
+                      <p><strong>Username:</strong> {existingAdmin.username}</p>
+                      <p><strong>Email:</strong> {existingAdmin.email}</p>
+                      <p><strong>Role:</strong> {existingAdmin.role}</p>
                     </div>
-                    <button
-                      onClick={() => {
-                        setSelectedUsers(prev =>
-                          prev.includes(userId)
-                            ? prev.filter(id => id !== userId)
-                            : [...prev, userId]
-                        );
-                      }}
-                      className={`p-2 rounded-lg transition-colors ${
-                        selectedUsers.includes(userId)
-                          ? 'bg-accent text-accent-foreground'
-                          : 'bg-card hover:bg-card/80 border border-border'
-                      }`}
-                    >
-                      {selectedUsers.includes(userId) ? <Check size={16} /> : <Plus size={16} />}
-                    </button>
                   </div>
-                );
-                })}
-              </div>
 
-              <div className="flex gap-3 pt-4">
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Update {role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} Details</h4>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Full Name</label>
+                      <input
+                        type="text"
+                        value={createFormData.name}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Enter full name"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Username</label>
+                      <input
+                        type="text"
+                        value={createFormData.username}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="Enter username"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={createFormData.email}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="Enter email address"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">New Password (optional)</label>
+                      <input
+                        type="password"
+                        value={createFormData.password}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
+                        placeholder="Leave empty to keep current password"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : activeTab === 'existing' ? (
+                // Select existing users (only when not editing)
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Search users..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                    />
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {filteredUsers.map((user) => {
+                      const userId = user._id as string;
+                      return (
+                        <div
+                          key={userId}
+                          className="flex items-center justify-between p-3 bg-background/50 rounded-lg hover:bg-background/80 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center">
+                              <span className="text-sm font-medium">{user.email.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium">{user.email}</p>
+                              <p className="text-sm text-muted-foreground">{user.username}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedUsers(prev =>
+                                prev.includes(userId)
+                                  ? prev.filter(id => id !== userId)
+                                  : [...prev, userId]
+                              );
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${
+                              selectedUsers.includes(userId)
+                                ? 'bg-accent text-accent-foreground'
+                                : 'bg-card hover:bg-card/80 border border-border'
+                            }`}
+                          >
+                            {selectedUsers.includes(userId) ? <Check size={16} /> : <Plus size={16} />}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                // Create new user (only when not editing)
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Full Name</label>
+                      <input
+                        type="text"
+                        value={createFormData.name}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Enter full name"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Username</label>
+                      <input
+                        type="text"
+                        value={createFormData.username}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="Enter username"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Email</label>
+                      <input
+                        type="email"
+                        value={createFormData.email}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="Enter email address"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Password</label>
+                      <input
+                        type="password"
+                        value={createFormData.password}
+                        onChange={(e) => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
+                        placeholder="Enter password"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-card hover:bg-card/80 border border-border rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+
+              {existingAdmin ? (
+                // Edit existing admin buttons
+                <>
+                  <button
+                    onClick={handleRemoveUser}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg transition-colors"
+                  >
+                    Remove {role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </button>
+                  <button
+                    onClick={handleUpdateUser}
+                    disabled={isUpdating || !createFormData.username || !createFormData.email}
+                    className="px-4 py-2 bg-gradient-to-r from-accent to-secondary text-accent-foreground font-bold rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUpdating ? 'Updating...' : `Update ${role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}`}
+                  </button>
+                </>
+              ) : (
+                // Create new or select existing buttons
                 <button
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 bg-card hover:bg-card/80 border border-border rounded-lg transition-colors"
+                  onClick={activeTab === 'existing' ? handleAddStaff : handleCreateUser}
+                  disabled={activeTab === 'existing' ? selectedUsers.length === 0 : isCreating || !createFormData.username || !createFormData.email || !createFormData.password}
+                  className="px-4 py-2 bg-gradient-to-r from-accent to-secondary text-accent-foreground font-bold rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Cancel
+                  {activeTab === 'existing' ? `Add Staff (${selectedUsers.length})` : (isCreating ? 'Creating...' : 'Create User')}
                 </button>
-                <button
-                  onClick={handleAddStaff}
-                  disabled={selectedUsers.length === 0}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-accent to-secondary text-accent-foreground font-bold rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Add Staff ({selectedUsers.length})
-                </button>
-              </div>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -154,10 +506,13 @@ const StaffModal = ({ isOpen, onClose, title, icon, type }: {
 };
 
 export default function ManageLeaguePage() {
+  const [existingLeagueAdmin, setExistingLeagueAdmin] = useState<User | null>(null);
+  const [existingEventAdmin, setExistingEventAdmin] = useState<User | null>(null);
+
   const router = useRouter();
   const params = useParams();
   const leagueId = params.id as string;
-  const { leagues, users, fetchUsers } = useAppStore();
+  const { leagues, users, user, fetchUsers } = useAppStore();
   const [isLoading, setIsLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
@@ -168,10 +523,17 @@ export default function ManageLeaguePage() {
       if (!users.length) {
         await fetchUsers();
       }
+      
+      // Check if league already has admins
+      const leagueAdmin = users.find(u => u.role === 'league-admin' && u.league?._id === leagueId);
+      const eventAdmin = users.find(u => u.role === 'event-admin' && u.league?._id === leagueId);
+      setExistingLeagueAdmin(leagueAdmin || null);
+      setExistingEventAdmin(eventAdmin || null);
+      
       setIsLoading(false);
     };
     loadData();
-  }, [fetchUsers, users.length]);
+  }, [fetchUsers, users.length, leagueId]);
 
   if (isLoading) {
     return (
@@ -370,19 +732,69 @@ export default function ManageLeaguePage() {
                 <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
                 <div className="space-y-3">
                   <button
-                    onClick={() => setActiveModal('admin')}
+                    onClick={async () => {
+                      // Always do a fresh check when button is clicked
+                      try {
+                        const response = await fetch(`/api/users?role=league-admin&leagueId=${league._id || league.id}`);
+                        if (response.ok) {
+                          const existingAdmins = await response.json();
+                          if (existingAdmins.length > 0) {
+                            // Admin exists, show the edit modal
+                            setExistingLeagueAdmin(existingAdmins[0]);
+                            setActiveModal('admin');
+                          } else {
+                            // No admin exists, show creation modal
+                            setExistingLeagueAdmin(null);
+                            setActiveModal('admin');
+                          }
+                        } else {
+                          // Error checking, default to creation modal
+                          setExistingLeagueAdmin(null);
+                          setActiveModal('admin');
+                        }
+                      } catch (error) {
+                        // Error checking, default to creation modal
+                        setExistingLeagueAdmin(null);
+                        setActiveModal('admin');
+                      }
+                    }}
                     className="w-full p-4 bg-gradient-to-r from-accent to-secondary text-accent-foreground font-bold rounded-xl hover:shadow-lg transition-all duration-300 flex items-center gap-3"
                   >
-                    <UserPlus size={20} />
-                    <span>Add League Admin</span>
+                    {existingLeagueAdmin ? <Edit size={20} /> : <UserPlus size={20} />}
+                    <span>{existingLeagueAdmin ? 'Edit League Admin' : 'Add League Admin'}</span>
                   </button>
 
                   <button
-                    onClick={() => setActiveModal('event-admin')}
+                    onClick={async () => {
+                      // Always do a fresh check when button is clicked
+                      try {
+                        const response = await fetch(`/api/users?role=event-admin&leagueId=${league._id || league.id}`);
+                        if (response.ok) {
+                          const existingAdmins = await response.json();
+                          if (existingAdmins.length > 0) {
+                            // Admin exists, show the edit modal
+                            setExistingEventAdmin(existingAdmins[0]);
+                            setActiveModal('event-admin');
+                          } else {
+                            // No admin exists, show creation modal
+                            setExistingEventAdmin(null);
+                            setActiveModal('event-admin');
+                          }
+                        } else {
+                          // Error checking, default to creation modal
+                          setExistingEventAdmin(null);
+                          setActiveModal('event-admin');
+                        }
+                      } catch (error) {
+                        // Error checking, default to creation modal
+                        setExistingEventAdmin(null);
+                        setActiveModal('event-admin');
+                      }
+                    }}
                     className="w-full p-4 bg-card hover:bg-card/80 border border-border rounded-xl transition-colors flex items-center gap-3"
                   >
                     <Shield size={20} className="text-blue-500" />
-                    <span>Manage Event Admins</span>
+                    <span>{existingEventAdmin ? 'Edit Event Admin' : 'Add Event Admin'}</span>
                   </button>
 
                   <button
@@ -429,17 +841,24 @@ export default function ManageLeaguePage() {
         <StaffModal
           isOpen={activeModal === 'admin'}
           onClose={() => setActiveModal(null)}
-          title="Add League Admin"
+          title={existingLeagueAdmin ? "Edit League Admin" : "Add League Admin"}
           icon={<UserPlus size={24} className="text-accent" />}
           type="admin"
+          league={league}
+          existingAdmin={existingLeagueAdmin}
+          onAdminChange={setExistingLeagueAdmin}
         />
 
         <StaffModal
           isOpen={activeModal === 'event-admin'}
           onClose={() => setActiveModal(null)}
-          title="Manage Event Admins"
+          title={existingEventAdmin ? "Edit Event Admin" : "Add Event Admin"}
           icon={<Shield size={24} className="text-blue-500" />}
           type="event-admin"
+          league={league}
+          existingAdmin={existingEventAdmin}
+          onAdminChange={setExistingEventAdmin}
+          role="event-admin"
         />
 
         <StaffModal
@@ -448,6 +867,7 @@ export default function ManageLeaguePage() {
           title="Manage Referees"
           icon={<Flag size={24} className="text-orange-500" />}
           type="referee"
+          league={league}
         />
 
         <StaffModal
@@ -456,6 +876,7 @@ export default function ManageLeaguePage() {
           title="Manage Other Staff"
           icon={<Users size={24} className="text-green-500" />}
           type="staff"
+          league={league}
         />
       </div>
     </ProtectedRoute>

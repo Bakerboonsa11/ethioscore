@@ -5,9 +5,10 @@ export interface IUser extends Document {
   email: string;
   username: string;
   password: string;
-  role: 'super-admin' | 'org-admin';
+  role: 'super-admin' | 'org-admin' | 'league-admin' | 'event-admin';
   phone?: string;
   organization?: mongoose.Types.ObjectId;
+  league?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,9 +17,10 @@ const UserSchema: Schema = new Schema({
   email: { type: String, required: true, unique: true },
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['super-admin', 'org-admin'], default: 'org-admin' },
+  role: { type: String, enum: ['super-admin', 'org-admin', 'league-admin', 'event-admin'], default: 'org-admin' },
   phone: { type: String },
   organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
+  league: { type: mongoose.Schema.Types.ObjectId, ref: 'League' },
 }, {
   timestamps: true,
 });
@@ -36,4 +38,7 @@ UserSchema.methods.comparePassword = async function (candidatePassword: string):
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+// Force re-registration to apply schema changes
+delete mongoose.models.User;
+
+export default mongoose.model<IUser>('User', UserSchema);
