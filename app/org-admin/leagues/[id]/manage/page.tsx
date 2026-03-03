@@ -80,11 +80,16 @@ const StaffModal = ({
   // Determine role filter based on type
   let roleFilter: string | undefined;
   if (type === 'admin') roleFilter = 'league-admin';
-  else if (type === 'event-admin') roleFilter = 'event-admin';
+  else if (type === 'event-admin') roleFilter = 'exclude-event-admin'; // Special case: exclude existing event-admins
   else if (type === 'referee') roleFilter = 'referee';
   // For 'staff', no role filter
 
-  const roleFilteredUsers = filteredUsers.filter(user => !roleFilter || user.role === roleFilter);
+  const roleFilteredUsers = filteredUsers.filter(user => {
+    if (roleFilter === 'exclude-event-admin') {
+      return user.role !== 'event-admin'; // Show users who are NOT event-admins
+    }
+    return !roleFilter || user.role === roleFilter;
+  });
 
   const handleAddStaff = async () => {
     if (selectedUsers.length === 0) return;
@@ -133,44 +138,34 @@ const StaffModal = ({
       }
     } else if (type === 'event-admin') {
       try {
-        // Check if league already has an event-admin by calling the API
-        const response = await fetch(`/api/users?role=event-admin&leagueId=${league._id || league.id}`);
-        if (!response.ok) {
-          throw new Error('Failed to check existing event-admins');
-        }
-        const existingAdmins = await response.json();
+        // Assign multiple event-admins to the league
+        const updatePromises = selectedUsers.map(async (userId) => {
+          const updateResponse = await fetch(`/api/users/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              role: 'event-admin',
+              league: league._id || league.id,
+            }),
+          });
 
-        if (existingAdmins.length > 0) {
-          alert(`An event admin already exists for this league. You can update or remove the existing admin instead.`);
-          return;
-        }
+          if (!updateResponse.ok) {
+            const error = await updateResponse.json();
+            throw new Error(`Failed to assign event-admin ${userId}: ${error.error}`);
+          }
 
-        // Update the selected user to be an event-admin
-        const userId = selectedUsers[0]; // Only allow one event-admin per league
-        const updateResponse = await fetch(`/api/users/${userId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            role: 'event-admin',
-            league: league._id || league.id,
-          }),
+          return updateResponse.json();
         });
 
-        if (!updateResponse.ok) {
-          const error = await updateResponse.json();
-          throw new Error(error.error);
-        }
+        const results = await Promise.all(updatePromises);
+        console.log(`Assigned event-admins:`, results);
 
-        const updatedUser = await updateResponse.json();
-        console.log(`Assigned event-admin:`, updatedUser);
-
-        // Update state and refresh users list
-        onAdminChange?.(updatedUser.user);
+        // Refresh users list
         await fetchUsers();
 
         onClose();
       } catch (error: any) {
-        alert(`Failed to assign event admin: ${error.message}`);
+        alert(`Failed to assign event-admins: ${error.message}`);
       }
     } else if (type === 'referee') {
       try {
@@ -588,7 +583,7 @@ const StaffModal = ({
 
 export default function ManageLeaguePage() {
   const [existingLeagueAdmin, setExistingLeagueAdmin] = useState<User | null>(null);
-  const [existingEventAdmin, setExistingEventAdmin] = useState<User | null>(null);
+  const [existingEventAdmins, setExistingEventAdmins] = useState<User[]>([]);
 
   const router = useRouter();
   const params = useParams();
@@ -607,9 +602,9 @@ export default function ManageLeaguePage() {
       
       // Check if league already has admins
       const leagueAdmin = users.find(u => u.role === 'league-admin' && u.league?._id === leagueId);
-      const eventAdmin = users.find(u => u.role === 'event-admin' && u.league?._id === leagueId);
+      const eventAdmins = users.filter(u => u.role === 'event-admin' && u.league?._id === leagueId);
       setExistingLeagueAdmin(leagueAdmin || null);
-      setExistingEventAdmin(eventAdmin || null);
+      setExistingEventAdmins(eventAdmins);
       
       setIsLoading(false);
     };
@@ -846,36 +841,11 @@ export default function ManageLeaguePage() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      // Always do a fresh check when button is clicked
-                      try {
-                        const response = await fetch(`/api/users?role=event-admin&leagueId=${league._id || league.id}`);
-                        if (response.ok) {
-                          const existingAdmins = await response.json();
-                          if (existingAdmins.length > 0) {
-                            // Admin exists, show the edit modal
-                            setExistingEventAdmin(existingAdmins[0]);
-                            setActiveModal('event-admin');
-                          } else {
-                            // No admin exists, show creation modal
-                            setExistingEventAdmin(null);
-                            setActiveModal('event-admin');
-                          }
-                        } else {
-                          // Error checking, default to creation modal
-                          setExistingEventAdmin(null);
-                          setActiveModal('event-admin');
-                        }
-                      } catch (error) {
-                        // Error checking, default to creation modal
-                        setExistingEventAdmin(null);
-                        setActiveModal('event-admin');
-                      }
-                    }}
+                    onClick={() => setActiveModal('event-admin')}
                     className="w-full p-4 bg-card hover:bg-card/80 border border-border rounded-xl transition-colors flex items-center gap-3"
                   >
                     <Shield size={20} className="text-blue-500" />
-                    <span>{existingEventAdmin ? 'Edit Event Admin' : 'Add Event Admin'}</span>
+                    <span>{existingEventAdmins.length > 0 ? `Manage Event Admins (${existingEventAdmins.length})` : 'Add Event Admins'}</span>
                   </button>
 
                   <button
@@ -933,12 +903,10 @@ export default function ManageLeaguePage() {
         <StaffModal
           isOpen={activeModal === 'event-admin'}
           onClose={() => setActiveModal(null)}
-          title={existingEventAdmin ? "Edit Event Admin" : "Add Event Admin"}
+          title="Manage Event Admins"
           icon={<Shield size={24} className="text-blue-500" />}
           type="event-admin"
           league={league}
-          existingAdmin={existingEventAdmin}
-          onAdminChange={setExistingEventAdmin}
           role="event-admin"
         />
 
@@ -949,6 +917,7 @@ export default function ManageLeaguePage() {
           icon={<Flag size={24} className="text-orange-500" />}
           type="referee"
           league={league}
+          role="referee"
         />
 
         <StaffModal

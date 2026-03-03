@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
 
     console.log('Received data for user creation:', { name, username, email, role, leagueId });
 
-    // Force role to 'referee' if leagueId is provided and role is not org-admin
-    if (leagueId && role !== 'org-admin') {
+    // Default role to 'referee' if leagueId is provided and no role is specified
+    if (leagueId && !role) {
       role = 'referee';
     }
 
@@ -56,13 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'leagueId is required for league-admin, event-admin, and referee roles' }, { status: 400 });
     }
 
-    // For event-admin role, check if league already has an admin of that type
-    if (role === 'event-admin') {
-      const existingAdmin = await User.findOne({ role, league: leagueId });
-      if (existingAdmin) {
-        return NextResponse.json({ error: `A ${role.replace('-', ' ')} already exists for this league. You can update or remove the existing admin instead.` }, { status: 400 });
-      }
-    }
+    // For event-admin role, no restriction on multiple admins per league
 
     // For org-admin role, check if organization exists
     if (role === 'org-admin') {
