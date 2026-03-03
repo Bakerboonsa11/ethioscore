@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'super-admin' | 'org-admin' | 'league-admin' | 'event-admin';
+  requiredRole?: 'super-admin' | 'org-admin' | 'league-admin' | 'event-admin' | 'referee';
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
@@ -30,7 +30,9 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
       } else if (user.role === 'league-admin') {
         router.push('/league-admin');
       } else if (user.role === 'event-admin') {
-        router.push('/league-admin'); // Event admins also go to league admin dashboard
+        router.push('/event-admin');
+      } else if (user.role === 'referee') {
+        router.push('/referee');
       } else {
         router.push('/auth/signin');
       }

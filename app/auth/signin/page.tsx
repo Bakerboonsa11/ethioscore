@@ -57,7 +57,9 @@ export default function SigninPage() {
       } else if (userData.role === 'league-admin') {
         router.push('/league-admin');
       } else if (userData.role === 'event-admin') {
-        router.push('/league-admin'); // Event admins go to league admin dashboard
+        router.push('/event-admin');
+      } else if (userData.role === 'referee') {
+        router.push('/referee');
       } else {
         router.push('/dashboard'); // fallback
       }

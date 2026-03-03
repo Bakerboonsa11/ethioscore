@@ -77,6 +77,15 @@ const StaffModal = ({
     user._id != null && user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Determine role filter based on type
+  let roleFilter: string | undefined;
+  if (type === 'admin') roleFilter = 'league-admin';
+  else if (type === 'event-admin') roleFilter = 'event-admin';
+  else if (type === 'referee') roleFilter = 'referee';
+  // For 'staff', no role filter
+
+  const roleFilteredUsers = filteredUsers.filter(user => !roleFilter || user.role === roleFilter);
+
   const handleAddStaff = async () => {
     if (selectedUsers.length === 0) return;
 
@@ -121,6 +130,78 @@ const StaffModal = ({
         onClose();
       } catch (error: any) {
         alert(`Failed to assign ${role.replace('-', ' ')}: ${error.message}`);
+      }
+    } else if (type === 'event-admin') {
+      try {
+        // Check if league already has an event-admin by calling the API
+        const response = await fetch(`/api/users?role=event-admin&leagueId=${league._id || league.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to check existing event-admins');
+        }
+        const existingAdmins = await response.json();
+
+        if (existingAdmins.length > 0) {
+          alert(`An event admin already exists for this league. You can update or remove the existing admin instead.`);
+          return;
+        }
+
+        // Update the selected user to be an event-admin
+        const userId = selectedUsers[0]; // Only allow one event-admin per league
+        const updateResponse = await fetch(`/api/users/${userId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            role: 'event-admin',
+            league: league._id || league.id,
+          }),
+        });
+
+        if (!updateResponse.ok) {
+          const error = await updateResponse.json();
+          throw new Error(error.error);
+        }
+
+        const updatedUser = await updateResponse.json();
+        console.log(`Assigned event-admin:`, updatedUser);
+
+        // Update state and refresh users list
+        onAdminChange?.(updatedUser.user);
+        await fetchUsers();
+
+        onClose();
+      } catch (error: any) {
+        alert(`Failed to assign event admin: ${error.message}`);
+      }
+    } else if (type === 'referee') {
+      try {
+        // Assign multiple referees to the league
+        const updatePromises = selectedUsers.map(async (userId) => {
+          const updateResponse = await fetch(`/api/users/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              role: 'referee',
+              league: league._id || league.id,
+            }),
+          });
+
+          if (!updateResponse.ok) {
+            const error = await updateResponse.json();
+            throw new Error(`Failed to assign referee ${userId}: ${error.error}`);
+          }
+
+          return updateResponse.json();
+        });
+
+        const results = await Promise.all(updatePromises);
+        console.log(`Assigned referees:`, results);
+
+        // Refresh users list
+        await fetchUsers();
+
+        onClose();
+      } catch (error: any) {
+        alert(`Failed to assign referees: ${error.message}`);
       }
     } else {
       // TODO: Implement logic for other staff types
@@ -373,7 +454,7 @@ const StaffModal = ({
                   </div>
 
                   <div className="max-h-60 overflow-y-auto space-y-2">
-                    {filteredUsers.map((user) => {
+                    {roleFilteredUsers.map((user) => {
                       const userId = user._id as string;
                       return (
                         <div

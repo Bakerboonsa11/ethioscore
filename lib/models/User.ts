@@ -4,8 +4,9 @@ import bcrypt from 'bcryptjs';
 export interface IUser extends Document {
   email: string;
   username: string;
+  name?: string;
   password: string;
-  role: 'super-admin' | 'org-admin' | 'league-admin' | 'event-admin';
+  role: 'super-admin' | 'org-admin' | 'league-admin' | 'event-admin' | 'referee';
   phone?: string;
   organization?: mongoose.Types.ObjectId;
   league?: mongoose.Types.ObjectId;
@@ -16,8 +17,9 @@ export interface IUser extends Document {
 const UserSchema: Schema = new Schema({
   email: { type: String, required: true, unique: true },
   username: { type: String, required: true, unique: true },
+  name: { type: String },
   password: { type: String, required: true },
-  role: { type: String, enum: ['super-admin', 'org-admin', 'league-admin', 'event-admin'], default: 'org-admin' },
+  role: { type: String, enum: ['super-admin', 'org-admin', 'league-admin', 'event-admin', 'referee'], default: 'org-admin' },
   phone: { type: String },
   organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
   league: { type: mongoose.Schema.Types.ObjectId, ref: 'League' },

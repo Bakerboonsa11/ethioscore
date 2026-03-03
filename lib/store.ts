@@ -47,8 +47,9 @@ export interface User {
   _id?: string;
   email: string;
   username: string;
+  name?: string;
   password?: string;
-  role: 'super-admin' | 'org-admin' | 'league-admin';
+  role: 'super-admin' | 'org-admin' | 'league-admin' | 'event-admin' | 'referee';
   phone?: string;
   organization?: {
     _id: string;
@@ -70,6 +71,8 @@ export interface Match {
   awayScore: number;
   date: string;
   status: 'scheduled' | 'live' | 'completed';
+  venue?: string;
+  leagueId?: string;
 }
 
 interface AppState {

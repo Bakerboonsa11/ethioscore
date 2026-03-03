@@ -33,29 +33,43 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
-    const { name, username, email, password, organizationId, leagueId, role = 'org-admin' } = await request.json();
+    let { name, username, email, password, phone, organizationId, leagueId, role = 'referee' } = await request.json();
 
-    if (!username || !email || !password || !organizationId) {
-      return NextResponse.json({ error: 'Username, email, password, and organizationId are required' }, { status: 400 });
+    console.log('Received data for user creation:', { name, username, email, role, leagueId });
+
+    // Force role to 'referee' if leagueId is provided and role is not org-admin
+    if (leagueId && role !== 'org-admin') {
+      role = 'referee';
     }
 
-    // For league-admin and event-admin roles, leagueId is required
-    if ((role === 'league-admin' || role === 'event-admin') && !leagueId) {
-      return NextResponse.json({ error: 'leagueId is required for league-admin and event-admin roles' }, { status: 400 });
+    if (!username || !email || !password) {
+      return NextResponse.json({ error: 'Username, email, and password are required' }, { status: 400 });
     }
 
-    // For league-admin and event-admin roles, check if league already has an admin of that type
-    if (role === 'league-admin' || role === 'event-admin') {
+    // For org-admin role, organizationId is required
+    if (role === 'org-admin' && !organizationId) {
+      return NextResponse.json({ error: 'organizationId is required for org-admin role' }, { status: 400 });
+    }
+
+    // For league-admin, event-admin, and referee roles, leagueId is required
+    if ((role === 'league-admin' || role === 'event-admin' || role === 'referee') && !leagueId) {
+      return NextResponse.json({ error: 'leagueId is required for league-admin, event-admin, and referee roles' }, { status: 400 });
+    }
+
+    // For event-admin role, check if league already has an admin of that type
+    if (role === 'event-admin') {
       const existingAdmin = await User.findOne({ role, league: leagueId });
       if (existingAdmin) {
         return NextResponse.json({ error: `A ${role.replace('-', ' ')} already exists for this league. You can update or remove the existing admin instead.` }, { status: 400 });
       }
     }
 
-    // Check if organization exists
-    const organization = await Organization.findById(organizationId);
-    if (!organization) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    // For org-admin role, check if organization exists
+    if (role === 'org-admin') {
+      const organization = await Organization.findById(organizationId);
+      if (!organization) {
+        return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+      }
     }
 
     // Check for existing user
@@ -69,19 +83,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new user
-    const newUser = new User({
+    const userData: any = {
       email,
       username,
+      name,
       password, // Don't hash here, let pre-save hook handle it
       role,
-      organization: organizationId,
-      league: (role === 'league-admin' || role === 'event-admin') ? leagueId : undefined,
-      phone: '', // optional field
-    });
+      phone,
+    };
+
+    if (role === 'org-admin') {
+      userData.organization = organizationId;
+    } else if (role === 'league-admin' || role === 'event-admin' || role === 'referee') {
+      userData.league = leagueId;
+    }
+
+    const newUser = new User(userData);
 
     await newUser.save();
 
-    return NextResponse.json({ user: newUser }, { status: 201 });
+    // Return user without password
+    const { password: _, ...userWithoutPassword } = newUser.toObject();
+
+    return NextResponse.json({ user: userWithoutPassword }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating user:', error);
     console.error('Error details:', error.errors);

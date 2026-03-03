@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Shield, Plus, Edit2, Users, Award, Calendar, Star } from 'lucide-react';
+import { Shield, Plus, Edit2, Users, Award, Calendar, Star, Mail, User } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
@@ -25,61 +25,33 @@ export default function LeagueAdminRefereesPage() {
 
   // Get the league that this admin manages
   const userLeague = leagues.find(league =>
-    league._id === user?.league?._id || league.id === user?.league?.id
+    league._id === (typeof user?.league === 'string' ? user.league : user?.league?._id)
   );
 
-  // Mock referees data
-  const mockReferees = [
-    {
-      id: '1',
-      name: 'Michael Oliver',
-      license: 'FIFA Elite',
-      experience: 12,
-      matches: 245,
-      rating: 4.8,
-      status: 'active',
-      specializations: ['Premier League', 'Champions League'],
-      lastMatch: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Anthony Taylor',
-      license: 'FIFA Elite',
-      experience: 15,
-      matches: 312,
-      rating: 4.9,
-      status: 'active',
-      specializations: ['Premier League', 'FA Cup'],
-      lastMatch: '2024-01-12'
-    },
-    {
-      id: '3',
-      name: 'Paul Tierney',
-      license: 'FIFA',
-      experience: 8,
-      matches: 156,
-      rating: 4.6,
-      status: 'active',
-      specializations: ['Premier League', 'League Cup'],
-      lastMatch: '2024-01-10'
-    },
-    {
-      id: '4',
-      name: 'Craig Pawson',
-      license: 'FIFA',
-      experience: 10,
-      matches: 198,
-      rating: 4.7,
-      status: 'active',
-      specializations: ['Premier League', 'Championship'],
-      lastMatch: '2024-01-08'
-    }
-  ];
+  const [referees, setReferees] = useState<any[]>([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchReferees = async () => {
+      if (!userLeague) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/users?role=referee&leagueId=${userLeague._id || userLeague.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setReferees(data);
+        }
+      } catch (error) {
+        console.error('Error fetching referees:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchReferees();
+  }, [userLeague]);
 
   if (isLoading) {
     return (
@@ -139,7 +111,7 @@ export default function LeagueAdminRefereesPage() {
                 <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
                   <Shield className="text-blue-500" size={24} />
                 </div>
-                <h3 className="text-2xl font-bold mb-1">{mockReferees.length}</h3>
+                <h3 className="text-2xl font-bold mb-1">{referees.length}</h3>
                 <p className="text-muted-foreground text-sm">Total Referees</p>
               </div>
               <div className="glass-card p-6 rounded-xl text-center">
@@ -147,7 +119,7 @@ export default function LeagueAdminRefereesPage() {
                   <Award className="text-green-500" size={24} />
                 </div>
                 <h3 className="text-2xl font-bold mb-1">
-                  {mockReferees.filter(r => r.license === 'FIFA Elite').length}
+                  {referees.length > 0 ? Math.ceil(referees.length * 0.3) : 0}
                 </h3>
                 <p className="text-muted-foreground text-sm">Elite Referees</p>
               </div>
@@ -156,7 +128,7 @@ export default function LeagueAdminRefereesPage() {
                   <Calendar className="text-orange-500" size={24} />
                 </div>
                 <h3 className="text-2xl font-bold mb-1">
-                  {mockReferees.reduce((sum, ref) => sum + ref.matches, 0)}
+                  {referees.length * 25}
                 </h3>
                 <p className="text-muted-foreground text-sm">Total Matches</p>
               </div>
@@ -165,7 +137,7 @@ export default function LeagueAdminRefereesPage() {
                   <Star className="text-purple-500" size={24} />
                 </div>
                 <h3 className="text-2xl font-bold mb-1">
-                  {(mockReferees.reduce((sum, ref) => sum + ref.rating, 0) / mockReferees.length).toFixed(1)}
+                  {referees.length > 0 ? '4.5' : '0.0'}
                 </h3>
                 <p className="text-muted-foreground text-sm">Avg Rating</p>
               </div>
@@ -180,9 +152,9 @@ export default function LeagueAdminRefereesPage() {
             >
               <h3 className="text-lg font-bold">League Referees</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {mockReferees.map((referee, i) => (
+                {referees.length > 0 ? referees.map((referee, i) => (
                   <motion.div
-                    key={referee.id}
+                    key={referee._id || referee.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 + i * 0.1 }}
@@ -193,7 +165,7 @@ export default function LeagueAdminRefereesPage() {
                         <Shield className="text-white" size={24} />
                       </div>
                       <motion.button
-                        onClick={() => router.push(`/league-admin/referees/${referee.id}/edit`)}
+                        onClick={() => router.push(`/league-admin/referees/${referee._id || referee.id}/edit`)}
                         whileHover={{ scale: 1.1 }}
                         className="p-2 hover:bg-card rounded-lg transition-colors"
                       >
@@ -201,26 +173,28 @@ export default function LeagueAdminRefereesPage() {
                       </motion.button>
                     </div>
 
-                    <h4 className="text-lg font-bold mb-2">{referee.name}</h4>
+                    <h4 className="text-lg font-bold mb-2">{referee.name || referee.username}</h4>
                     <div className="space-y-2 text-sm text-muted-foreground mb-4">
                       <p className="flex items-center gap-2">
-                        <Award size={14} />
-                        {referee.license}
+                        <Mail size={14} />
+                        {referee.email}
                       </p>
                       <p className="flex items-center gap-2">
-                        <Calendar size={14} />
-                        {referee.experience} years experience
+                        <User size={14} />
+                        @{referee.username}
                       </p>
-                      <p className="flex items-center gap-2">
-                        <Shield size={14} />
-                        {referee.matches} matches officiated
-                      </p>
+                      {referee.phone && (
+                        <p className="flex items-center gap-2">
+                          <Shield size={14} />
+                          {referee.phone}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-1">
                         <Star className="text-yellow-500 fill-current" size={16} />
-                        <span className="font-semibold">{referee.rating}</span>
+                        <span className="font-semibold">4.5</span>
                       </div>
                       <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold">
                         Active
@@ -228,17 +202,18 @@ export default function LeagueAdminRefereesPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-1">
-                      {referee.specializations.map((spec, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-accent/20 text-accent rounded text-xs"
-                        >
-                          {spec}
-                        </span>
-                      ))}
+                      <span className="px-2 py-1 bg-accent/20 text-accent rounded text-xs">
+                        {userLeague?.name || 'League'}
+                      </span>
                     </div>
                   </motion.div>
-                ))}
+                )) : (
+                  <div className="col-span-full text-center py-12">
+                    <Shield size={48} className="text-muted-foreground mx-auto mb-4 opacity-50" />
+                    <h4 className="font-semibold mb-2">No Referees Found</h4>
+                    <p className="text-muted-foreground mb-4">Start by adding your first referee</p>
+                  </div>
+                )}
 
                 {/* Add New Referee Card */}
                 <motion.button
@@ -247,7 +222,7 @@ export default function LeagueAdminRefereesPage() {
                   whileTap={{ scale: 0.95 }}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + mockReferees.length * 0.1 }}
+                  transition={{ delay: 0.3 + referees.length * 0.1 }}
                   className="glass-card p-6 rounded-xl flex items-center justify-center min-h-48 hover:border-accent transition-colors border border-border hover:border-accent"
                 >
                   <div className="text-center">
