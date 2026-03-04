@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 import User from '@/lib/models/User';
 import Organization from '@/lib/models/Organization';
 
+// Force League model registration
+const League = require('@/lib/models/League').default;
+
 const connectDB = async () => {
   if (mongoose.connections[0].readyState) return;
   await mongoose.connect(process.env.MONGODB_URI!);
@@ -55,7 +58,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Return user without password
-    const { password: _, ...userWithoutPassword } = user.toObject();
+    const populatedUser = await User.findById(user._id)
+      .populate('organization', 'name')
+      .populate('league', 'name');
+
+    const { password: _, ...userWithoutPassword } = populatedUser.toObject();
 
     return NextResponse.json({ user: userWithoutPassword }, { status: 200 });
   } catch (error) {

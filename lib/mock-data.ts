@@ -3,6 +3,7 @@ import { Organization, League, Match } from './store';
 export const mockOrganizations: Organization[] = [
   {
     id: '1',
+    _id: '507f1f77bcf86cd799439001',
     name: 'Ethiopian Premier League',
     country: 'Ethiopia',
     leaguesCount: 12,
@@ -10,6 +11,7 @@ export const mockOrganizations: Organization[] = [
   },
   {
     id: '2',
+    _id: '507f1f77bcf86cd799439002',
     name: 'Oromia Football Federation',
     country: 'Ethiopia',
     leaguesCount: 8,
@@ -17,6 +19,7 @@ export const mockOrganizations: Organization[] = [
   },
   {
     id: '3',
+    _id: '507f1f77bcf86cd799439003',
     name: 'Addis Ababa Sports Commission',
     country: 'Ethiopia',
     leaguesCount: 5,
@@ -24,6 +27,7 @@ export const mockOrganizations: Organization[] = [
   },
   {
     id: '4',
+    _id: '507f1f77bcf86cd799439004',
     name: 'Amhara Regional Football Association',
     country: 'Ethiopia',
     leaguesCount: 6,
@@ -34,32 +38,36 @@ export const mockOrganizations: Organization[] = [
 export const mockLeagues: League[] = [
   {
     id: 'l1',
+    _id: '507f1f77bcf86cd799439011',
     name: 'Ethiopian Premier Division',
-    organization: 'Ethiopian Premier League',
+    organization: '507f1f77bcf86cd799439001',
     teamsCount: 16,
     matchesCount: 240,
     status: 'active',
   },
   {
     id: 'l2',
+    _id: '507f1f77bcf86cd799439012',
     name: 'First Division',
-    organization: 'Ethiopian Premier League',
+    organization: '507f1f77bcf86cd799439001',
     teamsCount: 14,
     matchesCount: 182,
     status: 'active',
   },
   {
     id: 'l3',
+    _id: '507f1f77bcf86cd799439013',
     name: 'Oromia Premier',
-    organization: 'Oromia Football Federation',
+    organization: '507f1f77bcf86cd799439002',
     teamsCount: 12,
     matchesCount: 132,
     status: 'active',
   },
   {
     id: 'l4',
+    _id: '507f1f77bcf86cd799439014',
     name: 'Addis Ababa City Cup',
-    organization: 'Addis Ababa Sports Commission',
+    organization: '507f1f77bcf86cd799439003',
     teamsCount: 8,
     matchesCount: 56,
     status: 'completed',

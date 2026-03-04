@@ -58,6 +58,8 @@ export default function SigninPage() {
         router.push('/league-admin');
       } else if (userData.role === 'event-admin') {
         router.push('/event-admin');
+      } else if (userData.role === 'club-admin') {
+        router.push('/club-admin');
       } else if (userData.role === 'referee') {
         router.push('/referee');
       } else {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User from '@/lib/models/User';
 import Organization from '@/lib/models/Organization';
+import League from '@/lib/models/League';
+import Team from '@/lib/models/Team';
 import bcrypt from 'bcryptjs';
 
 export async function GET(request: NextRequest) {
@@ -22,10 +24,48 @@ export async function GET(request: NextRequest) {
       query.league = leagueId;
     }
 
-    const users = await User.find(query).populate('organization', 'name').sort({ createdAt: -1 });
+    const users = await User.find(query).populate('organization', 'name').populate('league', 'name').populate('team', 'name').sort({ createdAt: -1 });
     return NextResponse.json(users);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    await connectDB();
+
+    const { userId, teamId } = await request.json();
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    const updateData: any = {};
+    if (teamId) {
+      updateData.team = teamId;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    ).populate('organization', 'name').populate('league', 'name').populate('team', 'name');
+
+    if (!updatedUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Return user without password
+    const { password, ...userWithoutPassword } = updatedUser.toObject();
+
+    return NextResponse.json({ user: userWithoutPassword }, { status: 200 });
+  } catch (error: any) {
+    console.error('Error updating user:', error);
+    return NextResponse.json({ 
+      error: error.message || 'Failed to update user',
+      details: error.errors 
+    }, { status: 500 });
   }
 }
 
@@ -46,9 +86,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Username, email, and password are required' }, { status: 400 });
     }
 
-    // For org-admin role, organizationId is required
-    if (role === 'org-admin' && !organizationId) {
-      return NextResponse.json({ error: 'organizationId is required for org-admin role' }, { status: 400 });
+    // For org-admin and club-admin roles, organizationId is required
+    if ((role === 'org-admin' || role === 'club-admin') && !organizationId) {
+      return NextResponse.json({ error: 'organizationId is required for org-admin and club-admin roles' }, { status: 400 });
     }
 
     // For league-admin, event-admin, and referee roles, leagueId is required
@@ -58,8 +98,8 @@ export async function POST(request: NextRequest) {
 
     // For event-admin role, no restriction on multiple admins per league
 
-    // For org-admin role, check if organization exists
-    if (role === 'org-admin') {
+    // For org-admin and club-admin roles, check if organization exists
+    if (role === 'org-admin' || role === 'club-admin') {
       const organization = await Organization.findById(organizationId);
       if (!organization) {
         return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
@@ -86,7 +126,7 @@ export async function POST(request: NextRequest) {
       phone,
     };
 
-    if (role === 'org-admin') {
+    if (role === 'org-admin' || role === 'club-admin') {
       userData.organization = organizationId;
     } else if (role === 'league-admin' || role === 'event-admin' || role === 'referee') {
       userData.league = leagueId;

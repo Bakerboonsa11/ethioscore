@@ -6,10 +6,11 @@ export interface IUser extends Document {
   username: string;
   name?: string;
   password: string;
-  role: 'super-admin' | 'org-admin' | 'league-admin' | 'event-admin' | 'referee';
+  role: 'super-admin' | 'org-admin' | 'league-admin' | 'club-admin' | 'event-admin' | 'referee';
   phone?: string;
   organization?: mongoose.Types.ObjectId;
   league?: mongoose.Types.ObjectId;
+  team?: mongoose.Types.ObjectId; // For club-admin users
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,10 +20,11 @@ const UserSchema: Schema = new Schema({
   username: { type: String, required: true, unique: true },
   name: { type: String },
   password: { type: String, required: true },
-  role: { type: String, enum: ['super-admin', 'org-admin', 'league-admin', 'event-admin', 'referee'], default: 'org-admin' },
+  role: { type: String, enum: ['super-admin', 'org-admin', 'league-admin', 'club-admin', 'event-admin', 'referee'], default: 'org-admin' },
   phone: { type: String },
   organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
   league: { type: mongoose.Schema.Types.ObjectId, ref: 'League' },
+  team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' }, // For club-admin users
 }, {
   timestamps: true,
 });
