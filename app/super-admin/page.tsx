@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus, UserCheck, Crown, Sparkles, Star, Flame, Rocket, Thunderbolt, Eye } from 'lucide-react';
+import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus, UserCheck, Crown, Sparkles, Star, Flame, Rocket, Building, Eye } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { DataTable } from '@/components/dashboard/data-table';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
-import { mockOrganizations, mockChartData } from '@/lib/mock-data';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import {
   LineChart,
@@ -74,41 +73,60 @@ const performanceThemes = {
 
 export default function SuperAdminPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const { organizations, setOrganizations } = useAppStore();
+  const [chartData, setChartData] = useState([]);
+  const { organizations, leagues, matches, fetchOrganizations, fetchLeagues, fetchMatches, users, fetchUsers } = useAppStore();
 
   useEffect(() => {
-    setOrganizations(mockOrganizations);
-    setIsLoading(false);
-  }, [setOrganizations]);
+    const fetchData = async () => {
+      await fetchOrganizations();
+      await fetchLeagues();
+      await fetchMatches();
+      await fetchUsers();
+      setIsLoading(false);
+    };
+    fetchData();
+  }, [fetchOrganizations, fetchLeagues, fetchMatches, fetchUsers]);
+
+  useEffect(() => {
+    setChartData([{ name: 'Current', organizations: organizations.length, leagues: leagues.filter(l => l.status === 'active').length, matches: matches.length }]);
+  }, [organizations, leagues, matches]);
 
   const stats = [
     {
       title: 'Total Organizations',
-      value: organizations.length,
+      value: organizations.length.toString(),
       icon: '🏢',
       trend: { value: 12, isPositive: true },
       color: 'green' as const,
+      gradient: 'from-blue-500 to-cyan-500',
+      glow: 'shadow-blue-500/50'
     },
     {
       title: 'Active Leagues',
-      value: '42',
+      value: leagues.filter(l => l.status === 'active').length.toString(),
       icon: '🏆',
       trend: { value: 8, isPositive: true },
       color: 'blue' as const,
+      gradient: 'from-yellow-500 to-orange-500',
+      glow: 'shadow-yellow-500/50'
     },
     {
       title: 'Total Matches',
-      value: '1,247',
+      value: matches.length.toString(),
       icon: '⚽',
       trend: { value: 23, isPositive: true },
       color: 'gold' as const,
+      gradient: 'from-green-500 to-emerald-500',
+      glow: 'shadow-green-500/50'
     },
     {
       title: 'Active Users',
-      value: '892',
+      value: users.length.toString(),
       icon: '👥',
       trend: { value: 5, isPositive: false },
       color: 'red' as const,
+      gradient: 'from-purple-500 to-pink-500',
+      glow: 'shadow-purple-500/50'
     },
   ];
 
@@ -180,40 +198,7 @@ export default function SuperAdminPage() {
             animate={{ opacity: 1 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {[
-              {
-                title: 'Total Organizations',
-                value: organizations.length.toString(),
-                icon: '🏢',
-                trend: { value: 12, isPositive: true },
-                gradient: 'from-blue-500 to-cyan-500',
-                glow: 'shadow-blue-500/50'
-              },
-              {
-                title: 'Active Leagues',
-                value: '42',
-                icon: '🏆',
-                trend: { value: 8, isPositive: true },
-                gradient: 'from-yellow-500 to-orange-500',
-                glow: 'shadow-yellow-500/50'
-              },
-              {
-                title: 'Total Matches',
-                value: '1,247',
-                icon: '⚽',
-                trend: { value: 23, isPositive: true },
-                gradient: 'from-green-500 to-emerald-500',
-                glow: 'shadow-green-500/50'
-              },
-              {
-                title: 'Active Users',
-                value: '892',
-                icon: '👥',
-                trend: { value: 5, isPositive: false },
-                gradient: 'from-purple-500 to-pink-500',
-                glow: 'shadow-purple-500/50'
-              },
-            ].map((stat, i) => (
+            {stats.map((stat, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -306,7 +291,7 @@ export default function SuperAdminPage() {
 
               <div className="relative">
                 <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={mockChartData}>
+                  <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                     <XAxis stroke="#94a3b8" />
                     <YAxis stroke="#94a3b8" />
@@ -408,9 +393,9 @@ export default function SuperAdminPage() {
 
               <div className="space-y-4">
                 {[
-                  { label: 'Revenue', value: '$45,800', change: '+12%', icon: '💰', gradient: 'from-green-500 to-emerald-500' },
-                  { label: 'Conversion', value: '8.2%', change: '+2.1%', icon: '📈', gradient: 'from-blue-500 to-cyan-500' },
-                  { label: 'Engagement', value: '94%', change: '+5.3%', icon: '🎯', gradient: 'from-purple-500 to-pink-500' },
+                  { label: 'Revenue', value: '$0', change: '+0%', icon: '💰', gradient: 'from-green-500 to-emerald-500' },
+                  { label: 'Conversion', value: '0%', change: '+0%', icon: '📈', gradient: 'from-blue-500 to-cyan-500' },
+                  { label: 'Engagement', value: '0%', change: '+0%', icon: '🎯', gradient: 'from-purple-500 to-pink-500' },
                 ].map((item, i) => (
                   <motion.div
                     key={i}

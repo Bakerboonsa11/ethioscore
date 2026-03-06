@@ -119,29 +119,39 @@ export function FeaturesSection() {
         ))}
 
         {/* Ultra sparkle effects */}
-        {[...Array(30)].map((_, i) => (
-          <motion.div
-            key={`feature-sparkle-${i}`}
-            className="absolute w-1 h-1 bg-white rounded-full shadow-lg shadow-white/50"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              scale: [0, 1.5, 0],
-              opacity: [0, 1, 0],
-              rotate: [0, 180, 360],
-              x: [0, Math.random() * 200 - 100, 0],
-              y: [0, Math.random() * 200 - 100, 0],
-            }}
-            transition={{
-              duration: 5 + Math.random() * 4,
-              repeat: Infinity,
-              delay: Math.random() * 12,
-              ease: "easeInOut",
-            }}
-          />
-        ))}
+        {[...Array(30)].map((_, i) => {
+          // Deterministic positions to avoid hydration mismatch
+          const left = ((i * 7.3) % 100).toFixed(2);
+          const top = ((i * 11.7) % 100).toFixed(2);
+          const xOffset = ((i * 13.1) % 200) - 100;
+          const yOffset = ((i * 17.9) % 200) - 100;
+          const duration = 5 + ((i * 23.7) % 4);
+          const delay = ((i * 31.3) % 12);
+
+          return (
+            <motion.div
+              key={`feature-sparkle-${i}`}
+              className="absolute w-1 h-1 bg-white rounded-full shadow-lg shadow-white/50"
+              style={{
+                left: `${left}%`,
+                top: `${top}%`,
+              }}
+              animate={{
+                scale: [0, 1.5, 0],
+                opacity: [0, 1, 0],
+                rotate: [0, 180, 360],
+                x: [0, xOffset, 0],
+                y: [0, yOffset, 0],
+              }}
+              transition={{
+                duration: duration,
+                repeat: Infinity,
+                delay: delay,
+                ease: "easeInOut",
+              }}
+            />
+          );
+        })}
 
         {/* Geometric shapes */}
         {[...Array(5)].map((_, i) => (

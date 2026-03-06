@@ -24,7 +24,8 @@ import {
   Globe,
   Save,
   Bell,
-  UserCheck
+  UserCheck,
+  Building,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
