@@ -120,12 +120,48 @@ export interface Match {
   updatedAt?: string;
 }
 
+export interface Player {
+  id?: string;
+  _id?: string;
+  name: string;
+  position: 'Goalkeeper' | 'Defender' | 'Midfielder' | 'Forward';
+  jerseyNumber: number;
+  age: number;
+  nationality: string;
+  email: string;
+  phone: string;
+  status: 'active' | 'injured' | 'suspended';
+  goals: number;
+  assists: number;
+  appearances: number;
+  joinedDate: string;
+  contractEnd: string;
+  team: {
+    _id: string;
+    name: string;
+  } | string;
+  height?: number;
+  weight?: number;
+  preferredFoot?: 'left' | 'right' | 'both';
+  dateOfBirth: string;
+  placeOfBirth?: string;
+  address?: string;
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    relationship: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface AppState {
   organizations: Organization[];
   leagues: League[];
   matches: Match[];
   teams: Team[];
   users: User[];
+  players: Player[];
   user: User | null;
 
   // Actions
@@ -155,6 +191,13 @@ interface AppState {
   addUser: (user: User) => void;
   fetchUsers: () => Promise<void>;
 
+  setPlayers: (players: Player[]) => void;
+  addPlayer: (player: Player) => void;
+  fetchPlayers: (teamId?: string) => Promise<void>;
+  createPlayer: (playerData: any) => Promise<Player>;
+  updatePlayer: (id: string, playerData: any) => Promise<Player>;
+  deletePlayer: (id: string) => Promise<void>;
+
   setUser: (user: User | null) => void;
   logout: () => void;
   login: (email: string, password: string) => Promise<User | { requiresApproval: true; error: string; organizationStatus?: string }>;
@@ -169,6 +212,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   matches: [],
   teams: [], // Add teams to initial state
   users: [],
+  players: [], // Add players to initial state
   user: null,
   
   setOrganizations: (orgs: Organization[]) => set({ organizations: orgs }),
@@ -395,6 +439,63 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       users: state.users.map((u) => (u._id === userId || u.id === userId ? user : u)),
     }));
-    return user;
   },
+
+  setPlayers: (players: Player[]) => set({ players }),
+  addPlayer: (player: Player) =>
+    set((state) => ({ players: [...state.players, player] })),
+
+  fetchPlayers: async (teamId?: string) => {
+    const url = teamId ? `/api/players?teamId=${teamId}` : '/api/players';
+    const response = await fetch(url);
+    if (response.ok) {
+      const players = await response.json();
+      set({ players });
+    }
+  },
+
+  createPlayer: async (playerData: any) => {
+    const response = await fetch('/api/players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(playerData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    const player = await response.json();
+    get().addPlayer(player);
+    return player;
+  },
+
+  updatePlayer: async (id: string, playerData: any) => {
+    const response = await fetch(`/api/players/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(playerData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    const player = await response.json();
+    set((state) => ({
+      players: state.players.map((p) => (p._id === id || p.id === id ? player : p)),
+    }));
+    return player;
+  },
+
+  deletePlayer: async (id: string) => {
+    const response = await fetch(`/api/players/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    set((state) => ({
+      players: state.players.filter((p) => p._id !== id && p.id !== id),
+    }));
+  }
 }));

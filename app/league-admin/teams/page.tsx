@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, Edit2, Trophy, MapPin, Calendar, Search, Filter, X, Check, Upload, Palette, Globe, Facebook, Twitter, Instagram } from 'lucide-react';
+import { Users, Plus, Edit2, Trophy, MapPin, Calendar, Search, Filter, X, Check, Upload, Palette, Globe, Facebook, Twitter, Instagram, Crown, Sparkles, Star, Flame, Rocket, Thunderbolt, TrendingUp } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
@@ -16,6 +16,38 @@ const navItems = [
   { label: 'Referees', href: '/league-admin/referees', icon: <Users size={20} /> },
   { label: 'Settings', href: '/league-admin/settings', icon: <Users size={20} /> },
 ];
+
+// Ultra performance themes
+const performanceThemes = {
+  excellent: {
+    gradient: 'from-emerald-500 via-green-500 to-teal-500',
+    glow: 'shadow-emerald-500/50',
+    bg: 'bg-emerald-500/20',
+    text: 'text-emerald-400',
+    icon: '🚀'
+  },
+  good: {
+    gradient: 'from-blue-500 via-cyan-500 to-sky-500',
+    glow: 'shadow-blue-500/50',
+    bg: 'bg-blue-500/20',
+    text: 'text-blue-400',
+    icon: '⚡'
+  },
+  average: {
+    gradient: 'from-yellow-500 via-amber-500 to-orange-500',
+    glow: 'shadow-yellow-500/50',
+    bg: 'bg-yellow-500/20',
+    text: 'text-yellow-400',
+    icon: '⭐'
+  },
+  poor: {
+    gradient: 'from-red-500 via-rose-500 to-pink-500',
+    glow: 'shadow-red-500/50',
+    bg: 'bg-red-500/20',
+    text: 'text-red-400',
+    icon: '💪'
+  }
+};
 
 const TeamModal = ({
   isOpen,
@@ -701,40 +733,97 @@ export default function LeagueAdminTeamsPage() {
           }
         >
           <div className="space-y-8">
-            {/* Teams Stats */}
+            {/* Ultra Teams Stats Grid */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="grid grid-cols-1 md:grid-cols-4 gap-6"
             >
-              <div className="glass-card p-6 rounded-xl text-center">
-                <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Users className="text-green-500" size={24} />
-                </div>
-                <h3 className="text-2xl font-bold mb-1">{activeTeams.length}</h3>
-                <p className="text-muted-foreground text-sm">Active Teams</p>
-              </div>
-              <div className="glass-card p-6 rounded-xl text-center">
-                <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Trophy className="text-blue-500" size={24} />
-                </div>
-                <h3 className="text-2xl font-bold mb-1">{totalPlayers}</h3>
-                <p className="text-muted-foreground text-sm">Total Players</p>
-              </div>
-              <div className="glass-card p-6 rounded-xl text-center">
-                <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <MapPin className="text-orange-500" size={24} />
-                </div>
-                <h3 className="text-2xl font-bold mb-1">{uniqueCities}</h3>
-                <p className="text-muted-foreground text-sm">Cities</p>
-              </div>
-              <div className="glass-card p-6 rounded-xl text-center">
-                <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Calendar className="text-purple-500" size={24} />
-                </div>
-                <h3 className="text-2xl font-bold mb-1">{oldestTeam || '-'}</h3>
-                <p className="text-muted-foreground text-sm">Oldest Club</p>
-              </div>
+              {[
+                {
+                  title: 'Active Teams',
+                  value: activeTeams.length.toString(),
+                  icon: '⚽',
+                  trend: { value: 2, isPositive: true },
+                  gradient: 'from-green-500 to-emerald-500',
+                  glow: 'shadow-green-500/50'
+                },
+                {
+                  title: 'Total Players',
+                  value: totalPlayers.toString(),
+                  icon: '👥',
+                  trend: { value: 12, isPositive: true },
+                  gradient: 'from-blue-500 to-cyan-500',
+                  glow: 'shadow-blue-500/50'
+                },
+                {
+                  title: 'Cities',
+                  value: uniqueCities.toString(),
+                  icon: '🏙️',
+                  trend: { value: 1, isPositive: true },
+                  gradient: 'from-orange-500 to-red-500',
+                  glow: 'shadow-orange-500/50'
+                },
+                {
+                  title: 'Oldest Club',
+                  value: oldestTeam ? oldestTeam.toString() : '-',
+                  icon: '🏆',
+                  trend: { value: 0, isPositive: true },
+                  gradient: 'from-purple-500 to-pink-500',
+                  glow: 'shadow-purple-500/50'
+                },
+              ].map((stat, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.1, duration: 0.5 }}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className={`glass-card p-6 rounded-3xl border border-white/10 backdrop-blur-xl relative overflow-hidden group ${stat.glow} hover:${stat.glow}`}
+                >
+                  {/* Animated Background Gradient */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-10 group-hover:opacity-20 transition-opacity duration-300`} />
+
+                  <div className="relative z-10">
+                    <div className={`w-12 h-12 bg-gradient-to-r ${stat.gradient} rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-all`}>
+                      <span className="text-2xl">{stat.icon}</span>
+                    </div>
+
+                    <motion.h3
+                      className="text-3xl font-bold mb-1 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      {stat.value}
+                    </motion.h3>
+
+                    <p className="text-gray-400 text-sm mb-2">{stat.title}</p>
+
+                    <motion.div
+                      className="flex items-center gap-1"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <TrendingUp size={12} className={stat.trend.isPositive ? "text-green-400" : "text-red-400"} />
+                      <span className={`text-xs font-medium ${stat.trend.isPositive ? "text-green-400" : "text-red-400"}`}>
+                        {stat.trend.isPositive ? '+' : ''}{stat.trend.value}
+                      </span>
+                    </motion.div>
+                  </div>
+
+                  {/* Animated Sparkles */}
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.3, 0.8, 0.3]
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      delay: i * 0.5
+                    }}
+                    className="absolute top-2 right-2 w-2 h-2 bg-yellow-400 rounded-full"
+                  />
+                </motion.div>
+              ))}
             </motion.div>
 
             {/* Search and Filters */}
@@ -815,17 +904,24 @@ export default function LeagueAdminTeamsPage() {
                         ease: [0.25, 0.46, 0.45, 0.94]
                       }}
                       whileHover={{
-                        y: -4,
-                        scale: 1.02,
-                        transition: { duration: 0.2 }
+                        y: -8,
+                        scale: 1.03,
+                        rotateY: 5,
+                        transition: { duration: 0.3 }
                       }}
-                      className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300"
+                      className="group relative overflow-hidden rounded-3xl shadow-2xl hover:shadow-3xl transition-all duration-500"
                       style={{
                         background: `linear-gradient(135deg, ${team.colors?.primary || '#1e40af'} 0%, ${team.colors?.secondary || '#ffffff'} 100%)`,
                       }}
                     >
+                      {/* Ultra Glow Effect */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${team.colors?.primary ? 'from-blue-500/30' : 'from-purple-500/30'} to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl`} />
+
                       {/* Dark overlay for text readability */}
-                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors duration-300" />
+                      <div className="absolute inset-0 bg-black/50 group-hover:bg-black/40 transition-colors duration-300" />
+
+                      {/* Animated Border */}
+                      <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-white/20 via-transparent to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                       {/* Content */}
                       <div className="relative p-6 text-white z-10">
@@ -833,22 +929,31 @@ export default function LeagueAdminTeamsPage() {
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-4">
                             {team.logo ? (
-                              <img
+                              <motion.img
                                 src={team.logo}
                                 alt={team.name}
-                                className="w-14 h-14 rounded-full object-cover border-2 border-white/30 shadow-lg"
+                                className="w-14 h-14 rounded-full object-cover border-2 border-white/30 shadow-lg group-hover:shadow-xl transition-all"
+                                whileHover={{ scale: 1.1, rotate: 10 }}
+                                transition={{ type: "spring", stiffness: 300 }}
                               />
                             ) : (
-                              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30 shadow-lg">
+                              <motion.div
+                                className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/30 shadow-lg group-hover:shadow-xl transition-all"
+                                whileHover={{ scale: 1.1, rotate: 10 }}
+                                transition={{ type: "spring", stiffness: 300 }}
+                              >
                                 <span className="text-white font-black text-xl">
                                   {team.name.charAt(0)}
                                 </span>
-                              </div>
+                              </motion.div>
                             )}
                             <div>
-                              <h3 className="text-2xl font-bold text-white drop-shadow-lg mb-1">
+                              <motion.h3
+                                className="text-2xl font-bold text-white drop-shadow-lg mb-1 group-hover:scale-105 transition-transform"
+                                whileHover={{ scale: 1.05 }}
+                              >
                                 {team.name}
-                              </h3>
+                              </motion.h3>
                               <div className="flex items-center gap-2">
                                 <MapPin size={16} className="text-white/80" />
                                 <span className="text-white/90 font-medium text-sm">{team.location}</span>
@@ -857,24 +962,27 @@ export default function LeagueAdminTeamsPage() {
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <div className={`px-3 py-1.5 rounded-full text-xs font-semibold shadow-md ${
-                              team.status === 'active'
-                                ? 'bg-green-500/30 text-green-100 border border-green-400/30'
-                                : team.status === 'inactive'
-                                  ? 'bg-yellow-500/30 text-yellow-100 border border-yellow-400/30'
-                                  : 'bg-red-500/30 text-red-100 border border-red-400/30'
-                            }`}>
+                            <motion.div
+                              className={`px-3 py-1.5 rounded-full text-xs font-semibold shadow-md border border-white/30 ${
+                                team.status === 'active'
+                                  ? 'bg-green-500/30 text-green-100 border-green-400/30'
+                                  : team.status === 'inactive'
+                                    ? 'bg-yellow-500/30 text-yellow-100 border-yellow-400/30'
+                                    : 'bg-red-500/30 text-red-100 border-red-400/30'
+                              }`}
+                              whileHover={{ scale: 1.05 }}
+                            >
                               {team.status.charAt(0).toUpperCase() + team.status.slice(1)}
-                            </div>
+                            </motion.div>
 
                             <motion.button
                               onClick={() => {
                                 setSelectedTeam(team);
                                 setActiveModal('select-club-admin');
                               }}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}
-                              className="p-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-lg border border-white/30 transition-all duration-200 shadow-md"
+                              whileHover={{ scale: 1.2, rotate: 15 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="p-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-lg border border-white/30 transition-all duration-200 shadow-md group-hover:shadow-lg"
                               title="Assign Club Admin"
                             >
                               <Users size={16} className="text-white" />
@@ -885,9 +993,9 @@ export default function LeagueAdminTeamsPage() {
                                 setSelectedTeam(team);
                                 setActiveModal('edit');
                               }}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}
-                              className="p-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-lg border border-white/30 transition-all duration-200 shadow-md"
+                              whileHover={{ scale: 1.2, rotate: 15 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="p-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-lg border border-white/30 transition-all duration-200 shadow-md group-hover:shadow-lg"
                             >
                               <Edit2 size={16} className="text-white" />
                             </motion.button>
@@ -896,34 +1004,73 @@ export default function LeagueAdminTeamsPage() {
 
                         {/* Bottom row: Details */}
                         <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div className="flex items-center gap-2">
+                          <motion.div
+                            className="flex items-center gap-2"
+                            whileHover={{ scale: 1.05 }}
+                          >
                             <Calendar size={14} className="text-white/70" />
                             <span className="text-white/90 font-medium">Founded {team.founded}</span>
-                          </div>
+                          </motion.div>
 
                           {team.stadium && (
-                            <div className="flex items-center gap-2">
+                            <motion.div
+                              className="flex items-center gap-2"
+                              whileHover={{ scale: 1.05 }}
+                            >
                               <Trophy size={14} className="text-white/70" />
                               <span className="text-white/90 font-medium">{team.stadium}</span>
-                            </div>
+                            </motion.div>
                           )}
 
                           {team.playersCount && (
-                            <div className="flex items-center gap-2">
+                            <motion.div
+                              className="flex items-center gap-2"
+                              whileHover={{ scale: 1.05 }}
+                            >
                               <Users size={14} className="text-white/70" />
                               <span className="text-white/90 font-medium">{team.playersCount} players</span>
-                            </div>
+                            </motion.div>
                           )}
 
                           {team.manager && (
-                            <div className="flex items-center gap-2">
+                            <motion.div
+                              className="flex items-center gap-2"
+                              whileHover={{ scale: 1.05 }}
+                            >
                               <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center">
                                 <span className="text-xs font-bold text-white">{team.manager.charAt(0)}</span>
                               </div>
                               <span className="text-white/90 font-medium">{team.manager}</span>
-                            </div>
+                            </motion.div>
                           )}
                         </div>
+
+                        {/* Ultra Sparkle Effects */}
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.3, 1],
+                            opacity: [0.3, 0.8, 0.3]
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            delay: i * 0.3
+                          }}
+                          className="absolute top-4 left-4 w-3 h-3 bg-yellow-400 rounded-full shadow-lg"
+                        />
+
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.5, 1],
+                            opacity: [0.2, 0.6, 0.2]
+                          }}
+                          transition={{
+                            duration: 3,
+                            repeat: Infinity,
+                            delay: i * 0.7
+                          }}
+                          className="absolute bottom-4 right-4 w-2 h-2 bg-pink-400 rounded-full shadow-lg"
+                        />
                       </div>
                     </motion.div>
                   ))}

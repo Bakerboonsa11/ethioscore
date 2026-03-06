@@ -717,7 +717,7 @@ export default function ManageLeaguePage() {
               <div className="glass-card p-8 rounded-2xl">
                 <div className="flex items-start gap-6 mb-6">
                   <div className="w-20 h-20 bg-gradient-to-br from-accent to-secondary rounded-2xl flex items-center justify-center text-4xl">
-                    {getFormatIcon(league.type.format)}
+                    {getFormatIcon(league.type?.format || 'league')}
                   </div>
                   <div className="flex-1">
                     <h2 className="text-2xl font-bold mb-2">{league.name}</h2>
@@ -738,7 +738,7 @@ export default function ManageLeaguePage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-accent mb-1">{league.type.format.replace('_', ' ')}</div>
+                    <div className="text-2xl font-bold text-accent mb-1">{(league.type?.format || 'league').replace('_', ' ')}</div>
                     <div className="text-sm text-muted-foreground">Format</div>
                   </div>
                   {league.tier && (
@@ -748,7 +748,7 @@ export default function ManageLeaguePage() {
                     </div>
                   )}
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-accent mb-1">{league.type.hasHomeAway ? 'Yes' : 'No'}</div>
+                    <div className="text-2xl font-bold text-accent mb-1">{league.type?.hasHomeAway ? 'Yes' : 'No'}</div>
                     <div className="text-sm text-muted-foreground">Home & Away</div>
                   </div>
                   <div className="text-center">

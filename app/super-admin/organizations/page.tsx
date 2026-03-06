@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus, CheckCircle, XCircle, Edit, Trash2, Eye } from 'lucide-react';
+import { BarChart3, Users, Trophy, TrendingUp, Settings, Plus, CheckCircle, XCircle, Edit, Trash2, Eye, Crown, Sparkles, Star, Flame, Rocket, Building, UserCheck } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { DataTable } from '@/components/dashboard/data-table';
@@ -27,7 +27,12 @@ const navItems = [
   {
     label: 'Organizations',
     href: '/super-admin/organizations',
-    icon: <Users size={20} />,
+    icon: <Building size={20} />,
+  },
+  {
+    label: 'Users',
+    href: '/super-admin/users',
+    icon: <UserCheck size={20} />,
   },
   {
     label: 'Settings',
@@ -35,6 +40,38 @@ const navItems = [
     icon: <Settings size={20} />,
   },
 ];
+
+// Ultra performance themes
+const performanceThemes = {
+  excellent: {
+    gradient: 'from-emerald-500 via-green-500 to-teal-500',
+    glow: 'shadow-emerald-500/50',
+    bg: 'bg-emerald-500/20',
+    text: 'text-emerald-400',
+    icon: '🚀'
+  },
+  good: {
+    gradient: 'from-blue-500 via-cyan-500 to-sky-500',
+    glow: 'shadow-blue-500/50',
+    bg: 'bg-blue-500/20',
+    text: 'text-blue-400',
+    icon: '⚡'
+  },
+  average: {
+    gradient: 'from-yellow-500 via-amber-500 to-orange-500',
+    glow: 'shadow-yellow-500/50',
+    bg: 'bg-yellow-500/20',
+    text: 'text-yellow-400',
+    icon: '⭐'
+  },
+  poor: {
+    gradient: 'from-red-500 via-rose-500 to-pink-500',
+    glow: 'shadow-red-500/50',
+    bg: 'bg-red-500/20',
+    text: 'text-red-400',
+    icon: '💪'
+  }
+};
 
 export default function OrganizationsPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -310,44 +347,193 @@ export default function OrganizationsPage() {
         }
       >
         <div className="space-y-8">
-          {/* Stats Grid */}
+          {/* Ultra Organizations Stats Grid */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
           >
-            {stats.map((stat, i) => (
-              <StatCard
+            {[
+              {
+                title: 'Total Organizations',
+                value: organizations.length.toString(),
+                icon: '🏢',
+                trend: { value: 12, isPositive: true },
+                gradient: 'from-blue-500 to-cyan-500',
+                glow: 'shadow-blue-500/50'
+              },
+              {
+                title: 'Approved',
+                value: approvedCount.toString(),
+                icon: '✅',
+                trend: { value: 8, isPositive: true },
+                gradient: 'from-green-500 to-emerald-500',
+                glow: 'shadow-green-500/50'
+              },
+              {
+                title: 'Pending',
+                value: pendingCount.toString(),
+                icon: '⏳',
+                trend: { value: -2, isPositive: false },
+                gradient: 'from-yellow-500 to-orange-500',
+                glow: 'shadow-yellow-500/50'
+              },
+              {
+                title: 'Active Leagues',
+                value: organizations.reduce((sum, org) => sum + (org.leaguesCount || 0), 0).toString(),
+                icon: '🏆',
+                trend: { value: 23, isPositive: true },
+                gradient: 'from-purple-500 to-pink-500',
+                glow: 'shadow-purple-500/50'
+              },
+            ].map((stat, i) => (
+              <motion.div
                 key={i}
-                {...stat}
-                delay={i * 0.1}
-              />
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.1, duration: 0.5 }}
+                whileHover={{ scale: 1.05, y: -5 }}
+                className={`glass-card p-6 rounded-3xl border border-white/10 backdrop-blur-xl relative overflow-hidden group ${stat.glow} hover:${stat.glow}`}
+              >
+                {/* Animated Background Gradient */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-10 group-hover:opacity-20 transition-opacity duration-300`} />
+
+                <div className="relative z-10">
+                  <div className={`w-12 h-12 bg-gradient-to-r ${stat.gradient} rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-all`}>
+                    <span className="text-2xl">{stat.icon}</span>
+                  </div>
+
+                  <motion.h3
+                    className="text-3xl font-bold mb-1 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    {stat.value}
+                  </motion.h3>
+
+                  <p className="text-gray-400 text-sm mb-2">{stat.title}</p>
+
+                  <motion.div
+                    className="flex items-center gap-1"
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    <TrendingUp size={12} className={stat.trend.isPositive ? "text-green-400" : "text-red-400"} />
+                    <span className={`text-xs font-medium ${stat.trend.isPositive ? "text-green-400" : "text-red-400"}`}>
+                      {stat.trend.isPositive ? '+' : ''}{stat.trend.value}
+                    </span>
+                  </motion.div>
+                </div>
+
+                {/* Animated Sparkles */}
+                <motion.div
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.3, 0.8, 0.3]
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    delay: i * 0.5
+                  }}
+                  className="absolute top-2 right-2 w-2 h-2 bg-yellow-400 rounded-full"
+                />
+              </motion.div>
             ))}
           </motion.div>
 
-          {/* Organizations Table */}
+          {/* Ultra Organizations Table */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="glass-card p-6 rounded-xl"
+            className="glass-card p-8 rounded-3xl border border-white/10 backdrop-blur-xl"
           >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-bold">All Organizations</h3>
-                <p className="text-muted-foreground mt-1">
-                  Review and manage organization registrations
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Eye size={16} className="mr-2" />
+            <div className="flex items-center justify-between mb-8">
+              <motion.div
+                className="flex items-center gap-3"
+                whileHover={{ scale: 1.02 }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Users size={20} className="text-white" />
+                </div>
+                <div>
+                  <motion.h3
+                    className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    All Organizations
+                  </motion.h3>
+                  <motion.p
+                    className="text-gray-400 mt-1"
+                    whileHover={{ scale: 1.01 }}
+                  >
+                    Review and manage organization registrations
+                  </motion.p>
+                </div>
+                <motion.div
+                  animate={{ rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                >
+                  <Crown className="w-6 h-6 text-yellow-400" />
+                </motion.div>
+              </motion.div>
+
+              <div className="flex gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white hover:border-white/20 transition-all"
+                >
+                  <Eye size={16} />
                   Export
-                </Button>
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <Sparkles size={14} />
+                  </motion.div>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:shadow-lg transition-all shadow-lg"
+                >
+                  <Plus size={16} />
+                  Quick Add
+                </motion.button>
               </div>
             </div>
-            <DataTable columns={columns} data={organizations} />
+
+            <div className="relative">
+              <DataTable columns={columns} data={organizations} />
+
+              {/* Table Sparkle Effects */}
+              <motion.div
+                animate={{
+                  scale: [1, 1.3, 1],
+                  opacity: [0.2, 0.8, 0.2]
+                }}
+                transition={{
+                  duration: 2.5,
+                  repeat: Infinity,
+                  delay: 1
+                }}
+                className="absolute top-4 right-4 w-3 h-3 bg-blue-400 rounded-full shadow-lg"
+              />
+
+              <motion.div
+                animate={{
+                  scale: [1, 1.5, 1],
+                  opacity: [0.2, 0.6, 0.2]
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  delay: 2
+                }}
+                className="absolute bottom-4 left-4 w-2 h-2 bg-green-400 rounded-full shadow-lg"
+              />
+            </div>
           </motion.div>
         </div>
       </DashboardLayout>

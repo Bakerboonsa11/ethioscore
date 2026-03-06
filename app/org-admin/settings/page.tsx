@@ -3,18 +3,40 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Settings, Save, Bell, Shield, Palette, Globe, Trophy, Users, Crown, Sparkles, Star, Flame, Rocket, Thunderbolt, TrendingUp, Eye, CheckCircle, AlertTriangle, Info, Calendar, Clock } from 'lucide-react';
+import {
+  BarChart3,
+  Trophy,
+  Users,
+  Zap,
+  Settings,
+  Save,
+  Bell,
+  Shield,
+  Palette,
+  Globe,
+  Crown,
+  Sparkles,
+  Star,
+  Flame,
+  Rocket,
+  Thunderbolt,
+  TrendingUp,
+  Eye,
+  CheckCircle,
+  AlertTriangle,
+  Info,
+  Calendar
+} from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 
 const navItems = [
-  { label: 'Overview', href: '/league-admin', icon: <Trophy size={20} /> },
-  { label: 'Teams', href: '/league-admin/teams', icon: <Users size={20} /> },
-  { label: 'Matches', href: '/league-admin/matches', icon: <Trophy size={20} /> },
-  { label: 'Referees', href: '/league-admin/referees', icon: <Shield size={20} /> },
-  { label: 'Settings', href: '/league-admin/settings', icon: <Settings size={20} /> },
+  { label: 'Overview', href: '/org-admin', icon: <BarChart3 size={20} /> },
+  { label: 'Leagues', href: '/org-admin/leagues', icon: <Trophy size={20} /> },
+  { label: 'Matches', href: '/org-admin/matches', icon: <Zap size={20} /> },
+  { label: 'Settings', href: '/org-admin/settings', icon: <Settings size={20} /> },
 ];
 
 // Ultra performance themes
@@ -49,31 +71,26 @@ const performanceThemes = {
   }
 };
 
-export default function LeagueAdminSettingsPage() {
+export default function OrgAdminSettingsPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { user, leagues } = useAppStore();
+  const { user } = useAppStore();
 
-  // Get the league that this admin manages
-  const userLeague = leagues.find(league =>
-    league._id === user?.league?._id || league.id === user?.league?.id
-  );
-
-  // Settings state
+  // Settings state for organization
   const [settings, setSettings] = useState({
     notifications: {
-      matchReminders: true,
-      teamUpdates: true,
-      refereeAssignments: false,
-      leagueAnnouncements: true,
+      leagueUpdates: true,
+      matchResults: true,
+      adminRequests: false,
+      systemAnnouncements: true,
     },
-    league: {
-      autoSchedule: false,
-      publicVisibility: true,
+    organization: {
+      publicProfile: true,
       allowSpectators: true,
-      requireReferees: true,
+      autoBackup: true,
+      requireApproval: false,
     },
     display: {
       theme: 'system',
@@ -93,7 +110,7 @@ export default function LeagueAdminSettingsPage() {
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsSaving(false);
     // Show success message
-    alert('Settings saved successfully!');
+    alert('Organization settings saved successfully!');
   };
 
   if (isLoading) {
@@ -101,51 +118,43 @@ export default function LeagueAdminSettingsPage() {
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-border border-t-accent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading settings...</p>
+          <p className="text-muted-foreground">Loading organization settings...</p>
         </div>
       </div>
     );
   }
 
-  if (!userLeague) {
-    return (
-      <ProtectedRoute requiredRole="league-admin">
-        <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-          <div className="text-center">
-            <Trophy className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">League Not Found</h2>
-            <p className="text-muted-foreground">You are not assigned to any league.</p>
-          </div>
-        </div>
-      </ProtectedRoute>
-    );
-  }
-
   return (
-    <ProtectedRoute requiredRole="league-admin">
+    <ProtectedRoute requiredRole="org-admin">
       <div className="min-h-screen bg-background text-foreground">
         <GradientBackground />
 
         <DashboardLayout
-          title="League Admin"
-          headerTitle="League Settings"
-          headerDescription={`Configure settings for ${userLeague.name}`}
+          title="Organization Admin"
+          headerTitle="Organization Settings"
+          headerDescription="Configure your organization's settings and preferences"
           navItems={navItems}
           headerActions={
             <motion.button
               onClick={handleSaveSettings}
               disabled={isSaving}
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl hover:shadow-lg transition-all duration-300 flex items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save size={20} />
               {isSaving ? 'Saving...' : 'Save Settings'}
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Sparkles size={16} />
+              </motion.div>
             </motion.button>
           }
         >
           <div className="space-y-8">
-            {/* Ultra League Overview Hero */}
+            {/* Ultra Organization Overview Hero */}
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -196,7 +205,7 @@ export default function LeagueAdminSettingsPage() {
                     </motion.div>
                   </motion.div>
 
-                  {/* League Info */}
+                  {/* Organization Info */}
                   <div className="flex-1 space-y-4">
                     <motion.div
                       initial={{ opacity: 0, x: -20 }}
@@ -208,7 +217,7 @@ export default function LeagueAdminSettingsPage() {
                         className="text-4xl font-bold bg-gradient-to-r from-white via-pink-200 to-purple-200 bg-clip-text text-transparent"
                         whileHover={{ scale: 1.02 }}
                       >
-                        League Configuration
+                        Organization Configuration
                       </motion.h2>
                       <motion.div
                         animate={{ rotate: [0, 10, -10, 0] }}
@@ -224,7 +233,7 @@ export default function LeagueAdminSettingsPage() {
                       transition={{ delay: 0.5 }}
                       className="text-gray-300 text-lg"
                     >
-                      Manage your league's settings, notifications, and preferences with ultra precision
+                      Manage your organization's settings, notifications, and preferences with ultra precision
                     </motion.p>
 
                     {/* Status Badges */}
@@ -285,31 +294,31 @@ export default function LeagueAdminSettingsPage() {
               <div className="glass-card p-6 rounded-3xl space-y-4 border border-white/10 backdrop-blur-xl">
                 {[
                   {
-                    key: 'matchReminders',
-                    title: 'Match Reminders',
-                    description: 'Get notified before scheduled matches',
-                    icon: <Calendar size={20} className="text-blue-400" />,
+                    key: 'leagueUpdates',
+                    title: 'League Updates',
+                    description: 'Notifications about new leagues and league changes',
+                    icon: <Trophy size={20} className="text-blue-400" />,
                     gradient: 'from-blue-500 to-cyan-500'
                   },
                   {
-                    key: 'teamUpdates',
-                    title: 'Team Updates',
-                    description: 'Notifications about team changes and registrations',
-                    icon: <Users size={20} className="text-green-400" />,
+                    key: 'matchResults',
+                    title: 'Match Results',
+                    description: 'Get notified when matches are completed',
+                    icon: <Zap size={20} className="text-green-400" />,
                     gradient: 'from-green-500 to-emerald-500'
                   },
                   {
-                    key: 'refereeAssignments',
-                    title: 'Referee Assignments',
-                    description: 'Alerts when referees are assigned to matches',
+                    key: 'adminRequests',
+                    title: 'Admin Requests',
+                    description: 'Alerts when league admins request assistance',
                     icon: <Shield size={20} className="text-orange-400" />,
                     gradient: 'from-orange-500 to-red-500'
                   },
                   {
-                    key: 'leagueAnnouncements',
-                    title: 'League Announcements',
-                    description: 'Important league-wide announcements and updates',
-                    icon: <Trophy size={20} className="text-purple-400" />,
+                    key: 'systemAnnouncements',
+                    title: 'System Announcements',
+                    description: 'Important system-wide announcements and updates',
+                    icon: <Settings size={20} className="text-purple-400" />,
                     gradient: 'from-purple-500 to-pink-500'
                   }
                 ].map((notification, index) => (
@@ -392,7 +401,7 @@ export default function LeagueAdminSettingsPage() {
               </div>
             </motion.div>
 
-            {/* Ultra League Configuration */}
+            {/* Ultra Organization Configuration */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -408,7 +417,7 @@ export default function LeagueAdminSettingsPage() {
                     <Trophy size={20} className="text-white" />
                   </div>
                   <span className="bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent text-xl font-bold">
-                    League Configuration
+                    Organization Configuration
                   </span>
                   <motion.div
                     animate={{ rotate: [0, 5, -5, 0] }}
@@ -422,31 +431,31 @@ export default function LeagueAdminSettingsPage() {
               <div className="glass-card p-6 rounded-3xl space-y-4 border border-white/10 backdrop-blur-xl">
                 {[
                   {
-                    key: 'autoSchedule',
-                    title: 'Auto Schedule Matches',
-                    description: 'Automatically schedule matches based on team availability',
-                    icon: <Calendar size={20} className="text-blue-400" />,
+                    key: 'publicProfile',
+                    title: 'Public Organization Profile',
+                    description: 'Make organization information visible to the public',
+                    icon: <Globe size={20} className="text-blue-400" />,
                     gradient: 'from-blue-500 to-cyan-500'
-                  },
-                  {
-                    key: 'publicVisibility',
-                    title: 'Public League',
-                    description: 'Make league information visible to the public',
-                    icon: <Globe size={20} className="text-green-400" />,
-                    gradient: 'from-green-500 to-emerald-500'
                   },
                   {
                     key: 'allowSpectators',
                     title: 'Allow Spectators',
-                    description: 'Enable spectator mode for matches',
-                    icon: <Users size={20} className="text-orange-400" />,
+                    description: 'Enable spectator mode for all organization matches',
+                    icon: <Users size={20} className="text-green-400" />,
+                    gradient: 'from-green-500 to-emerald-500'
+                  },
+                  {
+                    key: 'autoBackup',
+                    title: 'Auto Backup',
+                    description: 'Automatically backup organization data daily',
+                    icon: <Shield size={20} className="text-orange-400" />,
                     gradient: 'from-orange-500 to-red-500'
                   },
                   {
-                    key: 'requireReferees',
-                    title: 'Require Referees',
-                    description: 'Mandate referee assignment for all matches',
-                    icon: <Shield size={20} className="text-purple-400" />,
+                    key: 'requireApproval',
+                    title: 'Require Approval',
+                    description: 'Require admin approval for new league registrations',
+                    icon: <CheckCircle size={20} className="text-purple-400" />,
                     gradient: 'from-purple-500 to-pink-500'
                   }
                 ].map((config, index) => (
@@ -482,28 +491,28 @@ export default function LeagueAdminSettingsPage() {
                       {/* Status Indicator */}
                       <motion.div
                         className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-                          settings.league[config.key as keyof typeof settings.league]
+                          settings.organization[config.key as keyof typeof settings.organization]
                             ? 'bg-green-500/20 text-green-400 border border-green-400/30'
                             : 'bg-gray-500/20 text-gray-400 border border-gray-400/30'
                         }`}
                         whileHover={{ scale: 1.05 }}
                       >
-                        {settings.league[config.key as keyof typeof settings.league] ? (
+                        {settings.organization[config.key as keyof typeof settings.organization] ? (
                           <CheckCircle size={12} />
                         ) : (
                           <Info size={12} />
                         )}
-                        {settings.league[config.key as keyof typeof settings.league] ? 'Enabled' : 'Disabled'}
+                        {settings.organization[config.key as keyof typeof settings.organization] ? 'Enabled' : 'Disabled'}
                       </motion.div>
 
                       {/* Ultra Animated Toggle */}
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={settings.league[config.key as keyof typeof settings.league]}
+                          checked={settings.organization[config.key as keyof typeof settings.organization]}
                           onChange={(e) => setSettings(prev => ({
                             ...prev,
-                            league: { ...prev.league, [config.key]: e.target.checked }
+                            organization: { ...prev.organization, [config.key]: e.target.checked }
                           }))}
                           className="sr-only peer"
                         />
@@ -585,7 +594,7 @@ export default function LeagueAdminSettingsPage() {
                     {
                       key: 'timezone',
                       label: 'Timezone',
-                      icon: <Clock size={20} className="text-purple-400" />,
+                      icon: <Calendar size={20} className="text-purple-400" />,
                       gradient: 'from-purple-500 to-pink-500',
                       options: [
                         { value: 'UTC', label: 'UTC' },
