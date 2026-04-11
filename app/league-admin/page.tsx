@@ -8,7 +8,6 @@ import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
-import { mockLeagues, mockMatches } from '@/lib/mock-data';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 
 const navItems = [
@@ -55,7 +54,7 @@ export default function LeagueAdminPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 
-  const { user, leagues, setLeagues, matches, setMatches } = useAppStore();
+  const { user, leagues, setLeagues, matches, setMatches, teams, setTeams, players, setPlayers, users, setUsers, fetchLeagues, fetchMatches, fetchTeams, fetchPlayers, fetchUsers } = useAppStore();
 
   // Get the league that this admin manages
   const userLeague = leagues.find(league => {
@@ -71,23 +70,101 @@ export default function LeagueAdminPage() {
   const displayLeague = userLeague || leagues[0];
 
   useEffect(() => {
-    // Load leagues and matches if not already loaded
-    if (!leagues.length) {
-      setLeagues(mockLeagues);
-    }
-    if (!matches.length) {
-      setMatches(mockMatches);
-    }
-    // Simulate loading data
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, [leagues.length, matches.length, setLeagues, setMatches]);
+    const fetchData = async () => {
+      try {
+        setLeagues([]);
+        setMatches([]);
+        setTeams([]);
+        setPlayers([]);
+        setUsers([]);
+        
+        if (user) {
+          // Fetch leagues directly from API
+          const leaguesResponse = await fetch('/api/leagues');
+          if (leaguesResponse.ok) {
+            const fetchedLeagues = await leaguesResponse.json();
+            setLeagues(fetchedLeagues);
+            
+            // Find the user's league from fetched data
+            const fetchedUserLeague = fetchedLeagues.find((league: any) => {
+              if (typeof user.league === 'object' && user.league !== null) {
+                return league._id === user.league._id;
+              } else if (typeof user.league === 'string') {
+                return league._id === user.league || league.id === user.league;
+              }
+              return false;
+            });
+            
+            // Use user's league or first league
+            const currentLeague = fetchedUserLeague || fetchedLeagues[0];
+            if (currentLeague?._id || currentLeague?.id) {
+              const leagueId = currentLeague._id || currentLeague.id;
+              
+              // Fetch teams and matches for this league
+              const [teamsRes, matchesRes] = await Promise.all([
+                fetch(`/api/teams?leagueId=${leagueId}`),
+                fetch(`/api/matches?leagueId=${leagueId}`)
+              ]);
+              
+              if (teamsRes.ok) {
+                const teamsData = await teamsRes.json();
+                setTeams(teamsData);
+              }
+              
+              if (matchesRes.ok) {
+                const matchesData = await matchesRes.json();
+                setMatches(matchesData);
+              }
+            }
+          }
+          
+          // Fetch all players and users
+          const [playersRes, usersRes] = await Promise.all([
+            fetch('/api/players'),
+            fetch('/api/users')
+          ]);
+          
+          if (playersRes.ok) {
+            const playersData = await playersRes.json();
+            setPlayers(playersData);
+          }
+          
+          if (usersRes.ok) {
+            const usersData = await usersRes.json();
+            setUsers(usersData);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [user, fetchLeagues, fetchMatches, fetchTeams, fetchPlayers, fetchUsers, setLeagues, setMatches, setTeams, setPlayers, setUsers]);
 
-  // Mock stats for the league
+  // Calculate real stats for the league
+  const leagueTeams = teams; // Already filtered by league
+  const leagueMatches = matches; // Already filtered by league
+  
+  // Filter players who belong to teams in this league
+  const leaguePlayers = players.filter(player => {
+    const playerTeam = typeof player.team === 'object' && player.team !== null ? player.team._id : player.team;
+    return leagueTeams.some(team => team._id === playerTeam || team.id === playerTeam);
+  });
+  
+  // Filter referees for this league
+  const leagueReferees = users.filter(user => 
+    user.role === 'referee' && 
+    ((typeof user.league === 'object' && user.league?._id === displayLeague?._id) || 
+     (typeof user.league === 'string' && user.league === displayLeague?._id))
+  );
+
   const stats = [
     {
       title: 'Registered Teams',
-      value: '16',
+      value: leagueTeams.length.toString(),
       icon: '⚽',
       trend: { value: 2, isPositive: true },
       color: 'green' as const,
@@ -96,7 +173,7 @@ export default function LeagueAdminPage() {
     },
     {
       title: 'Total Matches',
-      value: '48',
+      value: leagueMatches.length.toString(),
       icon: '📅',
       trend: { value: 4, isPositive: true },
       color: 'blue' as const,
@@ -105,7 +182,7 @@ export default function LeagueAdminPage() {
     },
     {
       title: 'Active Referees',
-      value: '8',
+      value: leagueReferees.length.toString(),
       icon: '👨‍⚖️',
       trend: { value: 1, isPositive: true },
       color: 'gold' as const,
@@ -114,7 +191,7 @@ export default function LeagueAdminPage() {
     },
     {
       title: 'Total Players',
-      value: '320',
+      value: leaguePlayers.length.toString(),
       icon: '👥',
       trend: { value: 12, isPositive: true },
       color: 'red' as const,
@@ -124,8 +201,8 @@ export default function LeagueAdminPage() {
   ];
 
   // Calculate league performance based on stats
-  const totalTeams = parseInt(stats[0].value);
-  const totalMatches = parseInt(stats[1].value);
+  const totalTeams = leagueTeams.length;
+  const totalMatches = leagueMatches.length;
   const performanceScore = totalTeams + totalMatches;
 
   const getPerformanceTheme = (score: number) => {
@@ -137,10 +214,24 @@ export default function LeagueAdminPage() {
 
   const performanceTheme = getPerformanceTheme(performanceScore);
 
-  // Mock recent matches for this league
-  const leagueMatches = matches.filter(match =>
-    match.leagueId === displayLeague?.id || match.leagueId === displayLeague?._id
-  ).slice(0, 5);
+  // Helper function to get team name (handles both ID strings and name strings)
+  const getTeamName = (teamIdentifier: string) => {
+    if (!teamIdentifier) return 'Unknown Team';
+    
+    // First try to find by ID
+    const teamById = leagueTeams.find(team => team._id === teamIdentifier);
+    if (teamById) return teamById.name;
+    
+    // Then try to find by name
+    const teamByName = leagueTeams.find(team => team.name === teamIdentifier);
+    if (teamByName) return teamByName.name;
+    
+    // If not found, return the identifier as is (might be a name already)
+    return teamIdentifier;
+  };
+
+  // Recent matches for this league
+  const recentMatches = leagueMatches.slice(0, 5);
 
   if (isLoading) {
     return (
@@ -541,9 +632,9 @@ export default function LeagueAdminPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                {leagueMatches.length > 0 ? leagueMatches.map((match, index) => (
+                {recentMatches.length > 0 ? recentMatches.map((match, index) => (
                   <motion.div
-                    key={match.id}
+                    key={match._id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.7 + index * 0.1 }}
@@ -553,7 +644,7 @@ export default function LeagueAdminPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-4 mb-3">
                         <span className="font-bold text-lg text-white">
-                          {match.homeTeam}
+                          {getTeamName(match.homeTeam)}
                         </span>
                         <motion.span
                           className="text-3xl font-bold text-white px-3 py-1 bg-white/10 rounded-xl border border-white/20"
@@ -569,7 +660,7 @@ export default function LeagueAdminPage() {
                           {match.awayScore}
                         </motion.span>
                         <span className="font-bold text-lg text-white">
-                          {match.awayTeam}
+                          {getTeamName(match.awayTeam)}
                         </span>
                       </div>
 
@@ -611,7 +702,7 @@ export default function LeagueAdminPage() {
                       </motion.span>
 
                       <motion.button
-                        onClick={() => router.push(`/league-admin/matches/${match.id}`)}
+                        onClick={() => router.push(`/league-admin/matches/${match._id}`)}
                         whileHover={{ scale: 1.1, rotate: 10 }}
                         whileTap={{ scale: 0.9 }}
                         className="p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all border border-white/20 group/button"
@@ -673,10 +764,10 @@ export default function LeagueAdminPage() {
 
                 <div className="space-y-4">
                   {[
-                    { label: 'Matches Played', value: totalMatches, color: 'text-blue-400' },
-                    { label: 'Teams Registered', value: totalTeams, color: 'text-green-400' },
-                    { label: 'Active Referees', value: 8, color: 'text-yellow-400' },
-                    { label: 'Total Players', value: 320, color: 'text-red-400' }
+                    { label: 'Matches Played', value: leagueMatches.length, color: 'text-blue-400' },
+                    { label: 'Teams Registered', value: leagueTeams.length, color: 'text-green-400' },
+                    { label: 'Active Referees', value: leagueReferees.length, color: 'text-yellow-400' },
+                    { label: 'Total Players', value: leaguePlayers.length, color: 'text-red-400' }
                   ].map((item, idx) => (
                     <motion.div
                       key={item.label}
@@ -713,9 +804,9 @@ export default function LeagueAdminPage() {
 
                 <div className="grid grid-cols-1 gap-4">
                   {[
-                    { label: 'Round 3 of 8', desc: 'Current match week', icon: <Award size={24} className="text-green-400" />, bg: 'from-green-500/20 to-emerald-500/20' },
-                    { label: '24 Matches', desc: 'Completed this season', icon: <Calendar size={24} className="text-blue-400" />, bg: 'from-blue-500/20 to-cyan-500/20' },
-                    { label: '6 Weeks', desc: 'Remaining in season', icon: <Clock size={24} className="text-orange-400" />, bg: 'from-orange-500/20 to-red-500/20' }
+                    { label: `Round ${Math.min(8, Math.floor(leagueMatches.length / 7) + 1)} of 8`, desc: 'Current match week', icon: <Award size={24} className="text-green-400" />, bg: 'from-green-500/20 to-emerald-500/20' },
+                    { label: `${leagueMatches.length} Matches`, desc: 'Completed this season', icon: <Calendar size={24} className="text-blue-400" />, bg: 'from-blue-500/20 to-cyan-500/20' },
+                    { label: `${Math.max(0, 56 - leagueMatches.length)} Matches`, desc: 'Remaining in season', icon: <Clock size={24} className="text-orange-400" />, bg: 'from-orange-500/20 to-red-500/20' }
                   ].map((item, idx) => (
                     <motion.div
                       key={item.label}

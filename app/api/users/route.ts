@@ -73,13 +73,19 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
-    let { name, username, email, password, phone, organizationId, leagueId, role = 'referee' } = await request.json();
+    let { name, username, email, password, phone, organizationId, leagueId, role } = await request.json();
 
     console.log('Received data for user creation:', { name, username, email, role, leagueId });
 
-    // Default role to 'referee' if leagueId is provided and no role is specified
-    if (leagueId && !role) {
-      role = 'referee';
+    // Set default role based on provided IDs
+    if (!role) {
+      if (organizationId) {
+        role = 'org-admin';
+      } else if (leagueId) {
+        role = 'referee';
+      } else {
+        role = 'referee'; // Default fallback
+      }
     }
 
     if (!username || !email || !password) {

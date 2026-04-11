@@ -86,7 +86,7 @@ export default function RefereePage() {
 
   // Mock upcoming matches for this referee
   const refereeMatches = matches.filter(match =>
-    match.leagueId === displayLeague?.id || match.leagueId === displayLeague?._id
+    match?.leagueId === displayLeague?.id || match?.leagueId === displayLeague?._id
   ).slice(0, 5);
 
   if (isLoading) {

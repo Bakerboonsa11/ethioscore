@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import { connectDB } from '@/lib/db';
 import Match from '@/lib/models/Match';
-
-const connectDB = async () => {
-  if (mongoose.connections[0].readyState) return;
-  await mongoose.connect(process.env.MONGODB_URI!);
-};
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +17,10 @@ export async function GET(request: NextRequest) {
 
     const matches = await Match.find(query)
       .populate('leagueId', 'name')
+      .populate('referee', 'name username')
+      .populate('assistantReferee1', 'name username')
+      .populate('assistantReferee2', 'name username')
+      .populate('eventAdmin', 'name username')
       .sort({ date: 1 });
 
     return NextResponse.json(matches, { status: 200 });
@@ -44,7 +43,11 @@ export async function POST(request: NextRequest) {
       date,
       venue,
       leagueId,
-      status
+      status,
+      referee,
+      assistantReferee1,
+      assistantReferee2,
+      eventAdmin
     } = body;
 
     if (!homeTeam || !awayTeam || !date || !leagueId) {
@@ -59,12 +62,21 @@ export async function POST(request: NextRequest) {
       date: new Date(date),
       venue,
       leagueId,
-      status: status || 'scheduled'
+      status: status || 'scheduled',
+      referee,
+      assistantReferee1,
+      assistantReferee2,
+      eventAdmin
     });
 
     await match.save();
 
-    const populatedMatch = await Match.findById(match._id).populate('leagueId', 'name');
+    const populatedMatch = await Match.findById(match._id)
+      .populate('leagueId', 'name')
+      .populate('referee', 'name username')
+      .populate('assistantReferee1', 'name username')
+      .populate('assistantReferee2', 'name username')
+      .populate('eventAdmin', 'name username');
 
     return NextResponse.json(populatedMatch, { status: 201 });
   } catch (error) {

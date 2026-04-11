@@ -650,17 +650,27 @@ export default function LeagueAdminTeamsPage() {
     loadTeams();
   }, [userLeague, fetchTeams]);
 
-  // Filter teams based on search and status
+  // Filter teams based on search and status - only show teams for this league
   const filteredTeams = teams.filter(team => {
+    // First check if team belongs to this league
+    const teamLeagueId = typeof team.league === 'object' ? team.league._id : team.league;
+    const currentLeagueId = userLeague._id;
+    const belongsToLeague = teamLeagueId === currentLeagueId;
+
     const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          team.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (team.manager && team.manager.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || team.status === statusFilter;
-    return matchesSearch && matchesStatus;
+
+    return belongsToLeague && matchesSearch && matchesStatus;
   });
 
-  // Calculate stats
-  const activeTeams = teams.filter(t => t.status === 'active');
+  // Calculate stats - only for teams in this league
+  const leagueTeams = teams.filter(team => {
+    const teamLeagueId = typeof team.league === 'object' ? team.league._id : team.league;
+    return teamLeagueId === userLeague._id;
+  });
+  const activeTeams = leagueTeams.filter(t => t.status === 'active');
   const totalPlayers = activeTeams.reduce((sum, team) => sum + (team.playersCount || 0), 0);
   const uniqueCities = new Set(activeTeams.map(team => team.location)).size;
   const oldestTeam = activeTeams.length > 0 ? Math.min(...activeTeams.map(team => team.founded)) : null;

@@ -8,7 +8,6 @@ import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { GradientBackground } from '@/components/dashboard/gradient-background';
 import { useAppStore } from '@/lib/store';
-import { mockLeagues, mockMatches } from '@/lib/mock-data';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 
 const navItems = [
@@ -54,42 +53,105 @@ export default function OrgAdminPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 
-  const { leagues, setLeagues, matches, setMatches } = useAppStore();
+  const { user, leagues, matches, teams, players, fetchLeagues, fetchMatches, fetchTeams, fetchPlayers, setLeagues, setMatches, setTeams, setPlayers } = useAppStore();
 
   useEffect(() => {
-    setLeagues(mockLeagues);
-    setMatches(mockMatches);
-    setIsLoading(false);
-  }, [setLeagues, setMatches]);
+    const fetchData = async () => {
+      setLeagues([]);
+      setMatches([]);
+      setTeams([]);
+      setPlayers([]);
+      if (user?.organization) {
+        await fetchLeagues();
+        await fetchMatches();
+        await fetchTeams();
+        await fetchPlayers();
+      }
+      setIsLoading(false);
+    };
+    fetchData();
+  }, [user?.organization, fetchLeagues, fetchMatches, fetchTeams, fetchPlayers, setLeagues, setMatches, setTeams, setPlayers]);
+
+  // Refetch data when window gains focus
+  useEffect(() => {
+    const handleFocus = async () => {
+      if (user?.organization) {
+        await fetchLeagues();
+        await fetchMatches();
+        await fetchTeams();
+        await fetchPlayers();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user?.organization, fetchLeagues, fetchMatches, fetchTeams, fetchPlayers]);
+
+  // Filter data for the organization
+  const orgLeagues = leagues.filter(league => {
+    const leagueOrgId = typeof league.organization === 'string' ? league.organization : league.organization?._id;
+    const userOrgId = typeof user?.organization === 'string' ? user.organization : user?.organization?._id;
+    return leagueOrgId === userOrgId;
+  });
+  const orgMatches = matches.filter(match => orgLeagues.some(league => league._id === match.leagueId || league.id === match.leagueId));
+  const orgTeams = teams.filter(team => {
+    const teamOrgId = typeof team.organization === 'string' ? team.organization : team.organization?._id;
+    const userOrgId = typeof user?.organization === 'string' ? user.organization : user?.organization?._id;
+    return teamOrgId === userOrgId;
+  });
+  const orgPlayers = players.filter(player => {
+    const playerTeamId = typeof player.team === 'string' ? player.team : player.team._id;
+    return orgTeams.some(team => team._id === playerTeamId);
+  });
+
+  // Helper to check if date is this week
+  const isThisWeek = (date: string) => {
+    const matchDate = new Date(date);
+    const now = new Date();
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+    return matchDate >= startOfWeek && matchDate <= endOfWeek;
+  };
 
   const stats = [
     {
-      title: 'Active Leagues',
-      value: mockLeagues.filter((l) => l.status === 'active').length,
+      title: 'Total Leagues',
+      value: orgLeagues.length.toString(),
       icon: '🏆',
       trend: { value: 3, isPositive: true },
       color: 'green' as const,
+      gradient: 'from-yellow-500 to-orange-500',
+      glow: 'shadow-yellow-500/50'
     },
     {
       title: 'Total Clubs',
-      value: '48',
+      value: orgTeams.length.toString(),
       icon: '⚽',
       trend: { value: 8, isPositive: true },
       color: 'blue' as const,
+      gradient: 'from-green-500 to-emerald-500',
+      glow: 'shadow-green-500/50'
     },
     {
       title: 'Matches This Week',
-      value: '12',
+      value: orgMatches.filter(match => isThisWeek(match.date)).length.toString(),
       icon: '📅',
       trend: { value: 2, isPositive: false },
       color: 'gold' as const,
+      gradient: 'from-blue-500 to-cyan-500',
+      glow: 'shadow-blue-500/50'
     },
     {
       title: 'Registered Players',
-      value: '1,240',
+      value: orgPlayers.length.toString(),
       icon: '👥',
       trend: { value: 45, isPositive: true },
       color: 'red' as const,
+      gradient: 'from-purple-500 to-pink-500',
+      glow: 'shadow-purple-500/50'
     },
   ];
 
@@ -133,40 +195,7 @@ export default function OrgAdminPage() {
               animate={{ opacity: 1 }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
             >
-              {[
-                {
-                  title: 'Active Leagues',
-                  value: mockLeagues.filter((l) => l.status === 'active').length.toString(),
-                  icon: '🏆',
-                  trend: { value: 3, isPositive: true },
-                  gradient: 'from-yellow-500 to-orange-500',
-                  glow: 'shadow-yellow-500/50'
-                },
-                {
-                  title: 'Total Clubs',
-                  value: '48',
-                  icon: '⚽',
-                  trend: { value: 8, isPositive: true },
-                  gradient: 'from-green-500 to-emerald-500',
-                  glow: 'shadow-green-500/50'
-                },
-                {
-                  title: 'Matches This Week',
-                  value: '12',
-                  icon: '📅',
-                  trend: { value: 2, isPositive: false },
-                  gradient: 'from-blue-500 to-cyan-500',
-                  glow: 'shadow-blue-500/50'
-                },
-                {
-                  title: 'Registered Players',
-                  value: '1,240',
-                  icon: '👥',
-                  trend: { value: 45, isPositive: true },
-                  gradient: 'from-purple-500 to-pink-500',
-                  glow: 'shadow-purple-500/50'
-                },
-              ].map((stat, i) => (
+              {stats.map((stat, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -236,7 +265,7 @@ export default function OrgAdminPage() {
                     <Trophy size={20} className="text-white" />
                   </div>
                   <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                    Active Leagues
+                    Leagues
                   </span>
                   <motion.div
                     animate={{ rotate: [0, 5, -5, 0] }}
@@ -248,9 +277,9 @@ export default function OrgAdminPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {leagues.map((league, i) => (
+                {orgLeagues.map((league, i) => (
                   <motion.div
-                    key={league.id}
+                    key={league._id}
                     initial={{ opacity: 0, y: 30, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{
@@ -278,14 +307,12 @@ export default function OrgAdminPage() {
                         <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                           <Trophy className="text-white" size={24} />
                         </div>
-                        <motion.button
-                          onClick={() => router.push('/org-admin/leagues')}
-                          whileHover={{ scale: 1.2, rotate: 15 }}
-                          whileTap={{ scale: 0.9 }}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20 transition-all"
+                        <button
+                          onClick={() => router.push(`/org-admin/leagues/${league._id}/manage`)}
+                          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg border border-white/20 transition-all pointer-events-auto"
                         >
                           <Edit2 size={18} className="text-gray-300 group-hover:text-white transition-colors" />
-                        </motion.button>
+                        </button>
                       </div>
 
                       <motion.h4
@@ -365,14 +392,9 @@ export default function OrgAdminPage() {
                 ))}
 
                 {/* Create New League Card */}
-                <motion.button
+                <button
                   onClick={() => router.push('/org-admin/leagues/create')}
-                  whileHover={{ scale: 1.05, y: -4 }}
-                  whileTap={{ scale: 0.95 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 + leagues.length * 0.1 }}
-                  className="glass-card p-6 rounded-3xl flex items-center justify-center min-h-40 hover:border-accent transition-colors border border-white/10 backdrop-blur-xl group relative overflow-hidden"
+                  className="glass-card p-6 rounded-3xl flex items-center justify-center min-h-40 hover:border-accent transition-colors border border-white/10 backdrop-blur-xl group relative overflow-hidden pointer-events-auto"
                 >
                   {/* Animated Background */}
                   <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -401,7 +423,7 @@ export default function OrgAdminPage() {
                     }}
                     className="absolute top-4 right-4 w-2 h-2 bg-accent rounded-full shadow-lg"
                   />
-                </motion.button>
+                </button>
               </div>
             </motion.div>
 
@@ -433,9 +455,9 @@ export default function OrgAdminPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                {matches.slice(0, 5).map((match, index) => (
+                {orgMatches.slice(0, 5).map((match, index) => (
                   <motion.div
-                    key={match.id}
+                    key={match._id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.7 + index * 0.1 }}

@@ -3,21 +3,25 @@ import { connectDB } from '@/lib/db';
 import Player from '@/lib/models/Player';
 import Team from '@/lib/models/Team';
 
-// GET /api/players - Get all players or filter by team
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
+    const organizationId = searchParams.get('organizationId');
 
     let query = {};
     if (teamId) {
       query = { team: teamId };
+    } else if (organizationId) {
+      query = { organization: organizationId };
     }
 
     const players = await Player.find(query)
       .populate('team', 'name')
+      .populate('organization', 'name')
+      .populate('league', 'name')
       .sort({ createdAt: -1 });
 
     return NextResponse.json(players);
@@ -42,6 +46,8 @@ export async function POST(request: NextRequest) {
       email,
       phone,
       team,
+      organization,
+      league,
       joinedDate,
       contractEnd,
       height,
@@ -53,7 +59,7 @@ export async function POST(request: NextRequest) {
     } = data;
 
     // Validate required fields
-    if (!name || !position || !jerseyNumber || !dateOfBirth || !nationality || !email || !phone || !team || !joinedDate || !contractEnd) {
+    if (!name || !position || !jerseyNumber || !dateOfBirth || !nationality || !email || !phone || !team || !organization || !league || !joinedDate || !contractEnd) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -77,6 +83,8 @@ export async function POST(request: NextRequest) {
       email,
       phone,
       team,
+      organization,
+      league,
       joinedDate,
       contractEnd,
       height,

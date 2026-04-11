@@ -15,6 +15,8 @@ export interface IPlayer extends Document {
   joinedDate: string;
   contractEnd: string;
   team: mongoose.Types.ObjectId;
+  organization: mongoose.Types.ObjectId;
+  league: mongoose.Types.ObjectId;
   height?: number;
   weight?: number;
   preferredFoot?: 'left' | 'right' | 'both';
@@ -53,6 +55,8 @@ const PlayerSchema: Schema = new Schema({
   joinedDate: { type: String, required: true },
   contractEnd: { type: String, required: true },
   team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
+  organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
+  league: { type: mongoose.Schema.Types.ObjectId, ref: 'League', required: true },
   height: { type: Number },
   weight: { type: Number },
   preferredFoot: {

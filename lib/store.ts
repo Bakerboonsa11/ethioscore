@@ -155,6 +155,16 @@ export interface Player {
   updatedAt?: string;
 }
 
+export interface Group {
+  id?: string;
+  _id?: string;
+  name: string;
+  teams: string[]; // Array of team IDs
+  leagueId: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface AppState {
   organizations: Organization[];
   leagues: League[];
@@ -162,6 +172,7 @@ interface AppState {
   teams: Team[];
   users: User[];
   players: Player[];
+  groups: Group[];
   user: User | null;
 
   // Actions
@@ -195,8 +206,15 @@ interface AppState {
   addPlayer: (player: Player) => void;
   fetchPlayers: (teamId?: string) => Promise<void>;
   createPlayer: (playerData: any) => Promise<Player>;
-  updatePlayer: (id: string, playerData: any) => Promise<Player>;
+  updatePlayer: (id: string, playerData: any) => Promise<void>;
   deletePlayer: (id: string) => Promise<void>;
+
+  setGroups: (groups: Group[]) => void;
+  addGroup: (group: Group) => void;
+  fetchGroups: (leagueId?: string) => Promise<void>;
+  createGroup: (groupData: any) => Promise<Group>;
+  updateGroup: (id: string, groupData: any) => Promise<Group>;
+  deleteGroup: (id: string) => Promise<void>;
 
   setUser: (user: User | null) => void;
   logout: () => void;
@@ -213,6 +231,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   teams: [], // Add teams to initial state
   users: [],
   players: [], // Add players to initial state
+  groups: [], // Add groups to initial state
   user: null,
   
   setOrganizations: (orgs: Organization[]) => set({ organizations: orgs }),
@@ -225,7 +244,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ organizations: orgs });
     }
   },
-  
   setLeagues: (leagues: League[]) => set({ leagues }),
   addLeague: (league: League) =>
     set((state) => ({ leagues: [...state.leagues, league] })),
@@ -368,8 +386,66 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  setGroups: (groups: Group[]) => set({ groups }),
+  addGroup: (group: Group) =>
+    set((state) => ({ groups: [...state.groups, group] })),
+
+  fetchGroups: async (leagueId?: string) => {
+    const url = leagueId ? `/api/groups?leagueId=${leagueId}` : '/api/groups';
+    const response = await fetch(url);
+    if (response.ok) {
+      const groups = await response.json();
+      set({ groups });
+    }
+  },
+
+  createGroup: async (groupData: any) => {
+    const response = await fetch('/api/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(groupData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    const group = await response.json();
+    get().addGroup(group);
+    return group;
+  },
+
+  updateGroup: async (id: string, groupData: any) => {
+    const response = await fetch(`/api/groups/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(groupData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    const group = await response.json();
+    set((state) => ({
+      groups: state.groups.map((g) => (g._id === id || g.id === id ? group : g)),
+    }));
+    return group;
+  },
+
+  deleteGroup: async (id: string) => {
+    const response = await fetch(`/api/groups/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    set((state) => ({
+      groups: state.groups.filter((g) => g._id !== id && g.id !== id),
+    }));
+  },
+
   setUser: (user: User | null) => set({ user }),
-  logout: () => set({ user: null, organizations: [], leagues: [], teams: [], matches: [] }),
+  logout: () => set({ user: null, organizations: [], leagues: [], teams: [], matches: [], groups: [] }),
 
   login: async (username: string, password: string) => {
     const response = await fetch('/api/auth/signin', {

@@ -1,0 +1,1079 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  Shield,
+  Trophy,
+  Sparkles,
+  ArrowLeft,
+  Save,
+  X,
+  Plus,
+  CheckCircle,
+  AlertCircle,
+  Zap,
+  Target,
+  Shuffle,
+  Layers,
+  TrophyIcon,
+  PlayCircle
+} from 'lucide-react';
+import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
+import { GradientBackground } from '@/components/dashboard/gradient-background';
+import { useAppStore } from '@/lib/store';
+import { ProtectedRoute } from '@/components/auth/protected-route';
+
+const navItems = [
+  { label: 'Overview', href: '/league-admin', icon: <Trophy size={20} /> },
+  { label: 'Teams', href: '/league-admin/teams', icon: <Users size={20} /> },
+  { label: 'Matches', href: '/league-admin/matches', icon: <Calendar size={20} /> },
+  { label: 'Referees', href: '/league-admin/referees', icon: <Shield size={20} /> },
+];
+
+export default function CreateMatchPage() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState<'manual' | 'automatic'>('manual');
+  const [generatedFixtures, setGeneratedFixtures] = useState<any[]>([]);
+  const [fixtureSettings, setFixtureSettings] = useState({
+    startDate: '',
+    startTime: '',
+    defaultVenue: '',
+    matchesPerWeek: 1,
+    includeReferees: false
+  });
+
+  const { user, leagues, teams, users, fetchTeams, fetchUsers } = useAppStore();
+
+  // Form state
+  const [formData, setFormData] = useState({
+    homeTeam: '',
+    awayTeam: '',
+    date: '',
+    time: '',
+    venue: '',
+    referee: '',
+    assistantReferee1: '',
+    assistantReferee2: '',
+    notes: ''
+  });
+
+  // Get the league that this admin manages
+  const userLeague = leagues.find(league => {
+    if (typeof user?.league === 'object' && user.league !== null) {
+      return league._id === user.league._id;
+    } else if (typeof user?.league === 'string') {
+      return league._id === user.league || league.id === user.league;
+    }
+    return false;
+  });
+
+  // Filter teams and referees for this league
+  const leagueTeams = teams.filter(team => team.league === userLeague?._id);
+  const leagueReferees = users.filter(user =>
+    user.role === 'referee' &&
+    ((typeof user.league === 'object' && user.league?._id === userLeague?._id) ||
+     (typeof user.league === 'string' && user.league === userLeague?._id))
+  );
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (userLeague) {
+        await fetchTeams(userLeague._id);
+        await fetchUsers();
+      }
+    };
+    fetchData();
+  }, [userLeague, fetchTeams, fetchUsers]);
+
+  const handleFixtureSettingsChange = (field: string, value: any) => {
+    setFixtureSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  // 🎯 Round-Robin Algorithm for League Format
+  const generateLeagueFixtures = (teams: any[], hasHomeAway: boolean) => {
+    const fixtures = [];
+    const numTeams = teams.length;
+
+    if (numTeams < 2) return fixtures;
+
+    // For even number of teams
+    if (numTeams % 2 === 0) {
+      for (let round = 0; round < (hasHomeAway ? numTeams - 1 : (numTeams - 1) / 2); round++) {
+        for (let i = 0; i < numTeams / 2; i++) {
+          const home = teams[i];
+          const away = teams[numTeams - 1 - i];
+
+          if (home && away) {
+            fixtures.push({
+              homeTeam: home.name,
+              awayTeam: away.name,
+              round: round + 1,
+              type: 'league'
+            });
+
+            // Add reverse fixture for home-away leagues
+            if (hasHomeAway) {
+              fixtures.push({
+                homeTeam: away.name,
+                awayTeam: home.name,
+                round: round + numTeams,
+                type: 'league'
+              });
+            }
+          }
+        }
+
+        // Rotate teams (keep first team fixed)
+        const temp = teams[teams.length - 1];
+        for (let i = teams.length - 1; i > 1; i--) {
+          teams[i] = teams[i - 1];
+        }
+        teams[1] = temp;
+      }
+    } else {
+      // For odd number of teams, add a bye round
+      const byeTeam = null;
+      for (let round = 0; round < numTeams; round++) {
+        for (let i = 0; i < (numTeams + 1) / 2; i++) {
+          const home = teams[i];
+          const away = teams[numTeams - i];
+
+          if (home && away && home !== away) {
+            fixtures.push({
+              homeTeam: home.name,
+              awayTeam: away.name,
+              round: round + 1,
+              type: 'league'
+            });
+
+            if (hasHomeAway) {
+              fixtures.push({
+                homeTeam: away.name,
+                awayTeam: home.name,
+                round: round + numTeams + 1,
+                type: 'league'
+              });
+            }
+          }
+        }
+
+        // Rotate teams
+        teams.splice(1, 0, teams.pop());
+      }
+    }
+
+    return fixtures;
+  };
+
+  // 🏆 FIFA Knockout Bracket Generation
+  const generateKnockoutFixtures = (teams: any[], rounds: number) => {
+    const fixtures = [];
+    const numTeams = teams.length;
+
+    // Sort teams by some ranking criteria (for now, just random seeding simulation)
+    const seededTeams = [...teams].sort((a, b) => Math.random() - 0.5);
+
+    let currentRoundTeams = seededTeams;
+    let roundNumber = 1;
+
+    while (currentRoundTeams.length > 1 && roundNumber <= rounds) {
+      const nextRoundTeams = [];
+      const roundFixtures = [];
+
+      for (let i = 0; i < currentRoundTeams.length; i += 2) {
+        if (i + 1 < currentRoundTeams.length) {
+          const home = currentRoundTeams[i];
+          const away = currentRoundTeams[i + 1];
+
+          roundFixtures.push({
+            homeTeam: home.name,
+            awayTeam: away.name,
+            round: roundNumber,
+            roundName: getRoundName(roundNumber, numTeams),
+            type: 'knockout'
+          });
+        } else {
+          // Handle odd number of teams (bye)
+          nextRoundTeams.push(currentRoundTeams[i]);
+        }
+      }
+
+      fixtures.push(...roundFixtures);
+      currentRoundTeams = nextRoundTeams;
+      roundNumber++;
+    }
+
+    return fixtures;
+  };
+
+  const getRoundName = (round: number, totalTeams: number) => {
+    const rounds = Math.log2(totalTeams);
+    if (round === rounds) return 'Final';
+    if (round === rounds - 1) return 'Semi-Final';
+    if (round === rounds - 2) return 'Quarter-Final';
+    if (round === rounds - 3) return 'Round of 16';
+    if (round === rounds - 4) return 'Round of 32';
+    return `Round ${round}`;
+  };
+
+  // 🎯 Generate Fixtures Based on League Type
+  const generateFixtures = () => {
+    if (!userLeague || leagueTeams.length < 2) return;
+
+    let fixtures = [];
+
+    if (userLeague.type?.format === 'league') {
+      fixtures = generateLeagueFixtures([...leagueTeams], userLeague.type.hasHomeAway);
+    } else if (userLeague.type?.format === 'knockout') {
+      fixtures = generateKnockoutFixtures([...leagueTeams], userLeague.type.knockoutRounds || 3);
+    }
+
+    // Add dates and venues to fixtures
+    const scheduledFixtures = fixtures.map((fixture, index) => {
+      const matchDate = new Date(fixtureSettings.startDate);
+      matchDate.setDate(matchDate.getDate() + Math.floor(index / fixtureSettings.matchesPerWeek) * 7);
+
+      return {
+        ...fixture,
+        date: matchDate.toISOString().split('T')[0],
+        time: fixtureSettings.startTime,
+        venue: fixtureSettings.defaultVenue,
+        homeScore: 0,
+        awayScore: 0,
+        status: 'scheduled'
+      };
+    });
+
+    setGeneratedFixtures(scheduledFixtures);
+  };
+
+  const saveGeneratedFixtures = async () => {
+    if (generatedFixtures.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      // Simulate API calls to save fixtures
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      setShowSuccess(true);
+      setTimeout(() => {
+        router.push('/league-admin/matches');
+      }, 2000);
+    } catch (error) {
+      console.error('Error saving fixtures:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isFormValid = formData.homeTeam && formData.awayTeam && formData.date && formData.time && formData.venue;
+
+  if (!userLeague) {
+    return (
+      <ProtectedRoute requiredRole="league-admin">
+        <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-border border-t-accent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading league data...</p>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  return (
+    <ProtectedRoute requiredRole="league-admin">
+      <div className="min-h-screen bg-background text-foreground">
+        <GradientBackground />
+
+        <DashboardLayout
+          title="Create Match"
+          headerTitle={`Schedule New Match - ${userLeague.name}`}
+          headerDescription="Create and schedule a new match for your league"
+          navItems={navItems}
+          headerActions={
+            <motion.button
+              onClick={() => router.push('/league-admin/matches')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold transition-all border border-white/20"
+            >
+              <ArrowLeft size={20} />
+              Back to Matches
+            </motion.button>
+          }
+        >
+          <div className="max-w-4xl mx-auto space-y-8">
+            {/* Ultra Hero Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="relative overflow-hidden"
+            >
+              {/* Dynamic Background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 opacity-10 blur-3xl" />
+
+              <div className="relative glass-card p-8 rounded-3xl border border-white/10 backdrop-blur-xl">
+                <div className="text-center space-y-6">
+                  <motion.div
+                    className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-500 rounded-3xl flex items-center justify-center mx-auto shadow-2xl"
+                    whileHover={{ scale: 1.1, rotate: 10 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <Plus size={40} className="text-white" />
+                  </motion.div>
+
+                  <motion.h1
+                    className="text-4xl md:text-5xl font-black bg-gradient-to-r from-white via-emerald-200 to-green-200 bg-clip-text text-transparent"
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring" }}
+                  >
+                    Schedule New Match
+                  </motion.h1>
+
+                  <motion.p
+                    className="text-xl text-gray-300 max-w-2xl mx-auto"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    Create an exciting new fixture for your league. Fill in the details below to schedule the perfect match.
+                  </motion.p>
+
+                  {/* Animated Stats */}
+                  <motion.div
+                    className="flex justify-center gap-8 mt-8"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    {[
+                      { icon: '⚽', label: `${leagueTeams.length} Teams Available`, color: 'from-blue-500 to-cyan-500' },
+                      { icon: '👨‍⚖️', label: `${leagueReferees.length} Referees Ready`, color: 'from-orange-500 to-red-500' },
+                      { icon: '📅', label: 'Next Match Day', color: 'from-purple-500 to-pink-500' }
+                    ].map((stat, i) => (
+                      <motion.div
+                        key={i}
+                        whileHover={{ scale: 1.05 }}
+                        className={`flex items-center gap-3 bg-gradient-to-r ${stat.color} px-6 py-3 rounded-2xl shadow-lg`}
+                      >
+                        <span className="text-2xl">{stat.icon}</span>
+                        <span className="text-white font-bold">{stat.label}</span>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Ultra Tab Navigation */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="flex justify-center mb-8"
+            >
+              <div className="glass-card p-2 rounded-2xl border border-white/10 backdrop-blur-xl flex">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab('manual')}
+                  className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 ${
+                    activeTab === 'manual'
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                      : 'text-gray-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Plus size={18} />
+                  Manual Match
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab('automatic')}
+                  className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 ${
+                    activeTab === 'automatic'
+                      ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg'
+                      : 'text-gray-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Zap size={18} />
+                  Auto Generate
+                </motion.button>
+              </div>
+            </motion.div>
+
+            {/* Automatic Fixture Generation */}
+            {activeTab === 'automatic' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-8"
+              >
+                {/* League Format Info */}
+                <div className="glass-card p-6 rounded-3xl border border-white/10 backdrop-blur-xl">
+                  <motion.div
+                    className="text-center space-y-4"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
+                    <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center ${
+                      userLeague?.type?.format === 'league'
+                        ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                        : 'bg-gradient-to-r from-orange-500 to-red-500'
+                    } shadow-lg`}>
+                      {userLeague?.type?.format === 'league' ? (
+                        <Shuffle size={32} className="text-white" />
+                      ) : (
+                        <TrophyIcon size={32} className="text-white" />
+                      )}
+                    </div>
+
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                      {userLeague?.type?.format === 'league' ? 'League Round-Robin' : 'Knockout Tournament'}
+                    </h3>
+
+                    <p className="text-gray-300 max-w-2xl mx-auto">
+                      {userLeague?.type?.format === 'league'
+                        ? `Generate a complete league schedule where ${leagueTeams.length} teams play ${userLeague.type?.hasHomeAway ? 'home and away' : 'single round-robin'} matches.`
+                        : `Create a knockout tournament bracket with ${leagueTeams.length} teams competing in ${userLeague.type?.knockoutRounds || 3} rounds.`
+                      }
+                    </p>
+
+                    <div className="flex justify-center gap-6 mt-6">
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="text-center"
+                      >
+                        <div className="text-3xl font-bold text-emerald-400">{leagueTeams.length}</div>
+                        <div className="text-sm text-gray-400">Teams</div>
+                      </motion.div>
+
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="text-center"
+                      >
+                        <div className="text-3xl font-bold text-blue-400">
+                          {userLeague?.type?.format === 'league'
+                            ? Math.floor(leagueTeams.length * (leagueTeams.length - 1) * (userLeague.type?.hasHomeAway ? 1 : 0.5))
+                            : Math.ceil(leagueTeams.length / 2)
+                          }
+                        </div>
+                        <div className="text-sm text-gray-400">Matches</div>
+                      </motion.div>
+
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="text-center"
+                      >
+                        <div className="text-3xl font-bold text-purple-400">
+                          {userLeague?.type?.format === 'league'
+                            ? Math.ceil((leagueTeams.length * (leagueTeams.length - 1) * (userLeague.type?.hasHomeAway ? 1 : 0.5)) / fixtureSettings.matchesPerWeek)
+                            : Math.ceil(Math.ceil(leagueTeams.length / 2) / fixtureSettings.matchesPerWeek)
+                          }
+                        </div>
+                        <div className="text-sm text-gray-400">Weeks</div>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Fixture Settings */}
+                <div className="glass-card p-8 rounded-3xl border border-white/10 backdrop-blur-xl">
+                  <motion.h3
+                    className="text-2xl font-bold mb-8 flex items-center gap-3"
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <Target size={24} className="text-white" />
+                    </div>
+                    <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                      Fixture Settings
+                    </span>
+                  </motion.h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <motion.div
+                      className="space-y-3"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                        <Calendar size={16} className="text-emerald-400" />
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={fixtureSettings.startDate}
+                        onChange={(e) => handleFixtureSettingsChange('startDate', e.target.value)}
+                        className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      />
+                    </motion.div>
+
+                    <motion.div
+                      className="space-y-3"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                        <Clock size={16} className="text-blue-400" />
+                        Default Time
+                      </label>
+                      <input
+                        type="time"
+                        value={fixtureSettings.startTime}
+                        onChange={(e) => handleFixtureSettingsChange('startTime', e.target.value)}
+                        className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      />
+                    </motion.div>
+
+                    <motion.div
+                      className="space-y-3 md:col-span-2"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                        <MapPin size={16} className="text-pink-400" />
+                        Default Venue
+                      </label>
+                      <input
+                        type="text"
+                        value={fixtureSettings.defaultVenue}
+                        onChange={(e) => handleFixtureSettingsChange('defaultVenue', e.target.value)}
+                        placeholder="Enter default stadium name"
+                        className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                      />
+                    </motion.div>
+
+                    <motion.div
+                      className="space-y-3"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                        <Layers size={16} className="text-yellow-400" />
+                        Matches Per Week
+                      </label>
+                      <select
+                        value={fixtureSettings.matchesPerWeek}
+                        onChange={(e) => handleFixtureSettingsChange('matchesPerWeek', parseInt(e.target.value))}
+                        className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
+                      >
+                        <option value={1}>1 match per week</option>
+                        <option value={2}>2 matches per week</option>
+                        <option value={3}>3 matches per week</option>
+                        <option value={4}>4 matches per week</option>
+                        <option value={5}>5 matches per week</option>
+                      </select>
+                    </motion.div>
+
+                    <motion.div
+                      className="flex items-center space-x-3"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <input
+                        type="checkbox"
+                        id="includeReferees"
+                        checked={fixtureSettings.includeReferees}
+                        onChange={(e) => handleFixtureSettingsChange('includeReferees', e.target.checked)}
+                        className="w-5 h-5 rounded border-white/20 bg-white/5 focus:ring-2 focus:ring-orange-500"
+                      />
+                      <label htmlFor="includeReferees" className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                        <Shield size={16} className="text-orange-400" />
+                        Auto-assign referees
+                      </label>
+                    </motion.div>
+                  </div>
+
+                  {/* Generate Button */}
+                  <motion.div
+                    className="flex justify-center mt-8"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    <motion.button
+                      onClick={generateFixtures}
+                      disabled={!fixtureSettings.startDate || !fixtureSettings.startTime || !fixtureSettings.defaultVenue || leagueTeams.length < 2}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`px-8 py-4 rounded-2xl font-bold shadow-lg transition-all flex items-center gap-3 ${
+                        fixtureSettings.startDate && fixtureSettings.startTime && fixtureSettings.defaultVenue && leagueTeams.length >= 2
+                          ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white hover:shadow-emerald-500/50'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <Zap size={20} />
+                      Generate Fixtures
+                      <Sparkles size={20} />
+                    </motion.button>
+                  </motion.div>
+                </div>
+
+                {/* Generated Fixtures Preview */}
+                {generatedFixtures.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="space-y-6"
+                  >
+                    <div className="flex items-center justify-between">
+                      <motion.h3
+                        className="text-2xl font-bold flex items-center gap-3"
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                          <PlayCircle size={24} className="text-white" />
+                        </div>
+                        <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                          Generated Fixtures ({generatedFixtures.length} matches)
+                        </span>
+                      </motion.h3>
+
+                      <motion.button
+                        onClick={saveGeneratedFixtures}
+                        disabled={isLoading}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`px-6 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 ${
+                          isLoading
+                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-green-500/50'
+                        }`}
+                      >
+                        {isLoading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={18} />
+                            Save All Fixtures
+                          </>
+                        )}
+                      </motion.button>
+                    </div>
+
+                    {/* Fixtures by Round */}
+                    {userLeague?.type?.format === 'league' ? (
+                      <div className="space-y-6">
+                        {Array.from(new Set(generatedFixtures.map(f => f.round))).sort((a, b) => a - b).map(round => (
+                          <motion.div
+                            key={round}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: round * 0.1 }}
+                            className="glass-card p-6 rounded-3xl border border-white/10 backdrop-blur-xl"
+                          >
+                            <h4 className="text-xl font-bold mb-4 text-center bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                              Round {round}
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {generatedFixtures.filter(f => f.round === round).map((fixture, index) => (
+                                <motion.div
+                                  key={index}
+                                  whileHover={{ scale: 1.02 }}
+                                  className="bg-white/5 p-4 rounded-2xl border border-white/10"
+                                >
+                                  <div className="text-center space-y-2">
+                                    <div className="font-semibold text-white">{fixture.homeTeam}</div>
+                                    <div className="text-2xl font-bold text-gray-400">VS</div>
+                                    <div className="font-semibold text-white">{fixture.awayTeam}</div>
+                                    <div className="text-xs text-gray-400">{fixture.date} at {fixture.time}</div>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {Array.from(new Set(generatedFixtures.map(f => f.round))).sort((a, b) => a - b).map(round => (
+                          <motion.div
+                            key={round}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: round * 0.1 }}
+                            className="glass-card p-6 rounded-3xl border border-white/10 backdrop-blur-xl"
+                          >
+                            <h4 className="text-xl font-bold mb-4 text-center bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">
+                              {generatedFixtures.find(f => f.round === round)?.roundName}
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                              {generatedFixtures.filter(f => f.round === round).map((fixture, index) => (
+                                <motion.div
+                                  key={index}
+                                  whileHover={{ scale: 1.02 }}
+                                  className="bg-white/5 p-4 rounded-2xl border border-white/10"
+                                >
+                                  <div className="text-center space-y-2">
+                                    <div className="font-semibold text-white">{fixture.homeTeam}</div>
+                                    <div className="text-2xl font-bold text-gray-400">VS</div>
+                                    <div className="font-semibold text-white">{fixture.awayTeam}</div>
+                                    <div className="text-xs text-gray-400">{fixture.date} at {fixture.time}</div>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Manual Match Creation */}
+            {activeTab === 'manual' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-8"
+              >
+              {/* Match Details Form */}
+              <div className="glass-card p-8 rounded-3xl border border-white/10 backdrop-blur-xl">
+                <motion.h2
+                  className="text-2xl font-bold mb-8 flex items-center gap-3"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Calendar size={24} className="text-white" />
+                  </div>
+                  <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    Match Details
+                  </span>
+                </motion.h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Home Team */}
+                  <motion.div
+                    className="space-y-3"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <Trophy size={16} className="text-emerald-400" />
+                      Home Team
+                    </label>
+                    <select
+                      value={formData.homeTeam}
+                      onChange={(e) => handleInputChange('homeTeam', e.target.value)}
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    >
+                      <option value="">Select Home Team</option>
+                      {leagueTeams.map(team => (
+                        <option key={team._id} value={team._id}>{team.name}</option>
+                      ))}
+                    </select>
+                  </motion.div>
+
+                  {/* Away Team */}
+                  <motion.div
+                    className="space-y-3"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <Trophy size={16} className="text-blue-400" />
+                      Away Team
+                    </label>
+                    <select
+                      value={formData.awayTeam}
+                      onChange={(e) => handleInputChange('awayTeam', e.target.value)}
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                      <option value="">Select Away Team</option>
+                      {leagueTeams.map(team => (
+                        <option key={team._id} value={team._id}>{team.name}</option>
+                      ))}
+                    </select>
+                  </motion.div>
+
+                  {/* Date */}
+                  <motion.div
+                    className="space-y-3"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <Calendar size={16} className="text-purple-400" />
+                      Match Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => handleInputChange('date', e.target.value)}
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    />
+                  </motion.div>
+
+                  {/* Time */}
+                  <motion.div
+                    className="space-y-3"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <Clock size={16} className="text-yellow-400" />
+                      Match Time
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.time}
+                      onChange={(e) => handleInputChange('time', e.target.value)}
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
+                    />
+                  </motion.div>
+
+                  {/* Venue */}
+                  <motion.div
+                    className="space-y-3 md:col-span-2"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <MapPin size={16} className="text-pink-400" />
+                      Venue
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.venue}
+                      onChange={(e) => handleInputChange('venue', e.target.value)}
+                      placeholder="Enter stadium name and location"
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                    />
+                  </motion.div>
+                </div>
+              </div>
+
+              {/* Officials Section */}
+              <div className="glass-card p-8 rounded-3xl border border-white/10 backdrop-blur-xl">
+                <motion.h2
+                  className="text-2xl font-bold mb-8 flex items-center gap-3"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Shield size={24} className="text-white" />
+                  </div>
+                  <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    Match Officials
+                  </span>
+                </motion.h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Referee */}
+                  <motion.div
+                    className="space-y-3"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <Shield size={16} className="text-orange-400" />
+                      Head Referee
+                    </label>
+                    <select
+                      value={formData.referee}
+                      onChange={(e) => handleInputChange('referee', e.target.value)}
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    >
+                      <option value="">Select Referee</option>
+                      {leagueReferees.map(referee => (
+                        <option key={referee._id} value={referee._id}>
+                          {referee.firstName} {referee.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </motion.div>
+
+                  {/* Assistant Referee 1 */}
+                  <motion.div
+                    className="space-y-3"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <Shield size={16} className="text-blue-400" />
+                      Assistant Referee 1
+                    </label>
+                    <select
+                      value={formData.assistantReferee1}
+                      onChange={(e) => handleInputChange('assistantReferee1', e.target.value)}
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    >
+                      <option value="">Select Assistant Referee</option>
+                      {leagueReferees.map(referee => (
+                        <option key={referee._id} value={referee._id}>
+                          {referee.firstName} {referee.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </motion.div>
+
+                  {/* Assistant Referee 2 */}
+                  <motion.div
+                    className="space-y-3"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8 }}
+                  >
+                    <label className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      <Shield size={16} className="text-green-400" />
+                      Assistant Referee 2
+                    </label>
+                    <select
+                      value={formData.assistantReferee2}
+                      onChange={(e) => handleInputChange('assistantReferee2', e.target.value)}
+                      className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                    >
+                      <option value="">Select Assistant Referee</option>
+                      {leagueReferees.map(referee => (
+                        <option key={referee._id} value={referee._id}>
+                          {referee.firstName} {referee.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </motion.div>
+                </div>
+              </div>
+
+              {/* Additional Notes */}
+              <div className="glass-card p-8 rounded-3xl border border-white/10 backdrop-blur-xl">
+                <motion.h2
+                  className="text-2xl font-bold mb-8 flex items-center gap-3"
+                  whileHover={{ scale: 1.02 }}
+                >
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <Sparkles size={24} className="text-white" />
+                  </div>
+                  <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                    Additional Notes
+                  </span>
+                </motion.h2>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.9 }}
+                >
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                    placeholder="Any special instructions, weather considerations, or additional match details..."
+                    rows={4}
+                    className="w-full p-4 bg-white/5 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+                  />
+                </motion.div>
+              </div>
+
+              {/* Ultra Action Buttons */}
+              <motion.div
+                className="flex flex-col sm:flex-row gap-4 justify-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.0 }}
+              >
+                <motion.button
+                  onClick={() => router.push('/league-admin/matches')}
+                  whileHover={{ scale: 1.05, x: -4 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl border border-white/20 transition-all flex items-center gap-3"
+                >
+                  <X size={20} />
+                  Cancel
+                </motion.button>
+
+                <motion.button
+                  onClick={handleSubmit}
+                  disabled={!isFormValid || isLoading}
+                  whileHover={isFormValid && !isLoading ? { scale: 1.05, x: 4 } : {}}
+                  whileTap={isFormValid && !isLoading ? { scale: 0.95 } : {}}
+                  className={`px-8 py-4 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center gap-3 ${
+                    isFormValid && !isLoading
+                      ? 'hover:shadow-emerald-500/50 hover:shadow-2xl'
+                      : 'opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Scheduling Match...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={20} />
+                      Schedule Match
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          </div>
+        </DashboardLayout>
+
+        {/* Success Modal */}
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="glass-card p-8 rounded-3xl border border-white/10 backdrop-blur-xl max-w-md mx-4 text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring" }}
+                className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6"
+              >
+                <CheckCircle size={32} className="text-white" />
+              </motion.div>
+              <h3 className="text-2xl font-bold mb-4 text-white">Match Scheduled!</h3>
+              <p className="text-gray-300 mb-6">
+                Your match has been successfully scheduled and added to the league calendar.
+              </p>
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-sm text-gray-400"
+              >
+                Redirecting to matches page...
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </div>
+    </ProtectedRoute>
+  );
+}

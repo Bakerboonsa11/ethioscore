@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -82,7 +82,10 @@ export default function AddPlayerPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPosition, setSelectedPosition] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { createPlayer, user, teams } = useAppStore();
+  const [existingPlayers, setExistingPlayers] = useState<any[]>([]);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'manual' | 'import' | 'search'>('manual');
+  const { user, players, fetchPlayers, createPlayer, updatePlayer, searchPlayers, searchResults, teams, fetchTeams } = useAppStore();
 
   const [formData, setFormData] = useState({
     // Step 1: Basic Info
@@ -119,6 +122,78 @@ export default function AddPlayerPage() {
     return clubAdminId === user?._id;
   });
 
+  const fetchExistingPlayers = async () => {
+    if (!userTeam?.organization) return;
+    
+    setIsLoadingExisting(true);
+    try {
+      const orgId = typeof userTeam.organization === 'object' ? userTeam.organization._id || userTeam.organization : userTeam.organization;
+      console.log('Fetching players for organization:', orgId);
+      const response = await fetch(`/api/players?organizationId=${orgId}`);
+      if (response.ok) {
+        const players = await response.json();
+        console.log('Fetched players:', players.length);
+        console.log('Sample player data:', players[0]); // Debug player structure
+        // Filter for players who are not assigned to any team
+        const availablePlayers = players.filter((player: any) => !player.team || !player.team._id);
+        console.log('Available players:', availablePlayers.length);
+        console.log('Available player IDs:', availablePlayers.map(p => p._id));
+        setExistingPlayers(availablePlayers);
+      } else {
+        console.error('API response not ok:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching existing players:', error);
+    } finally {
+      setIsLoadingExisting(false);
+    }
+  };
+
+  const handleAddExistingPlayer = async (player: any) => {
+    if (!userTeam) return;
+
+    setIsSubmitting(true);
+    try {
+      console.log('Assigning player:', player._id, 'to team:', userTeam._id);
+
+      // Update player to new team
+      const response = await fetch(`/api/players/${player._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          team: userTeam._id,
+        }),
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (response.ok) {
+        console.log('Player assigned successfully');
+        setSuccessMessage('Player assigned to team successfully!');
+        // Refresh the existing players list
+        await fetchExistingPlayers();
+      } else {
+        const errorText = await response.text();
+        console.error('Failed response:', response.status, errorText);
+        alert(`Failed to add existing player. Status: ${response.status}. Error: ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error adding existing player:', error);
+      alert(`Failed to add existing player. Error: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userTeam?.organization) {
+      fetchExistingPlayers();
+    }
+  }, [userTeam]);
+
   const handlePositionSelect = (position: string) => {
     setSelectedPosition(position);
     setFormData(prev => ({ ...prev, position }));
@@ -144,15 +219,19 @@ export default function AddPlayerPage() {
       const playerData = {
         ...formData,
         team: userTeam._id,
+        organization: userTeam.organization,
+        league: userTeam.league,
         age: formData.dateOfBirth ? new Date().getFullYear() - new Date(formData.dateOfBirth).getFullYear() : 0,
         status: 'active'
       };
 
       await createPlayer(playerData);
       router.push('/club-admin/players');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating player:', error);
-      alert('Failed to create player. Please try again.');
+      // Show user-friendly error message
+      const errorMessage = error.message || 'Failed to create player. Please try again.';
+      alert(`⚠️ Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -595,6 +674,86 @@ export default function AddPlayerPage() {
           navItems={navItems}
         >
           <div className="max-w-4xl mx-auto">
+            {/* Existing Players Section */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8"
+            >
+              <div className="glass-card p-6 rounded-2xl">
+                <h3 className="text-xl font-bold mb-4 text-center bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  Add Existing Players from Organization
+                </h3>
+                <p className="text-muted-foreground text-center mb-6">
+                  Select players from your organization to add to this team
+                </p>
+
+                {isLoadingExisting ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    <span className="ml-3 text-muted-foreground">Loading players...</span>
+                  </div>
+                ) : existingPlayers.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {existingPlayers.map((player: any) => (
+                      <motion.div
+                        key={player._id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="glass-card p-4 rounded-xl border border-border/50 hover:border-accent/50 transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-accent to-secondary rounded-full flex items-center justify-center text-white font-bold">
+                              {player.jerseyNumber}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold">{player.name}</h4>
+                              <p className="text-sm text-muted-foreground">{player.position}</p>
+                            </div>
+                          </div>
+                          <div className="text-right text-sm text-muted-foreground">
+                            <p>{player.team?.name}</p>
+                            <p className="text-xs">Age: {player.age}</p>
+                          </div>
+                        </div>
+
+                        <motion.button
+                          onClick={() => handleAddExistingPlayer(player)}
+                          disabled={isSubmitting}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="w-full px-4 py-2 bg-accent text-accent-foreground rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50"
+                        >
+                          {isSubmitting ? 'Adding...' : 'Add to Team'}
+                        </motion.button>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                      <User size={32} className="text-muted-foreground" />
+                    </div>
+                    <h4 className="text-lg font-semibold mb-2">No Existing Players Available</h4>
+                    <p className="text-muted-foreground">
+                      All players from your organization are already on teams, or no players exist yet.
+                      Create a new player below or check back later.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Separator */}
+              <div className="flex items-center my-8">
+                <div className="flex-1 border-t border-border"></div>
+                <div className="px-4 py-2 bg-card rounded-full text-sm text-muted-foreground font-medium">
+                  OR
+                </div>
+                <div className="flex-1 border-t border-border"></div>
+              </div>
+            </motion.div>
+
             {/* Progress Bar */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
